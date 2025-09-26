@@ -1,0 +1,43 @@
+# Sensitive configuration files
+config.js
+.env
+.env.local
+.env.production
+secrets.json
+
+# AWS credentials
+.aws/
+aws-credentials.json
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Logs
+logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build outputs
+dist/
+build/
+
+# Private notes and documentation
+*-private.txt
+*-secret.txt
+claude-read-this-*
+claude-do-this.txt

@@ -34,6 +34,9 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
+    <!-- Configuration (must be loaded first) -->
+    <script src="config.js"></script>
+
     <!-- External Scripts -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Stripe for payment processing -->
@@ -1600,7 +1603,7 @@
         function initGoogleAuth() {
             if (window.google && window.google.accounts) {
                 window.google.accounts.id.initialize({
-                    client_id: '242648112266-iglul54tuis9mhucsp1pmpqg0a48l8i0.apps.googleusercontent.com',
+                    client_id: window.SNAPIT_CONFIG?.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_NOT_CONFIGURED',
                     callback: handleGoogleSignIn,
                     auto_select: false,
                     cancel_on_tap_outside: true
@@ -2346,10 +2349,10 @@
             }
         }
 
-        // Stripe Configuration
+        // Stripe Configuration - Uses external config for security
         const STRIPE_CONFIG = {
-            publishableKey: 'pk_live_51RZK4aRE8RY21XQRpweG5ctPcGaRzShfajNWraIKOCLg4vYpqS88EqhpTGfj2joQbTjRK3spfP6uA6pGp2F4vRD700dBUbZ4aV',
-            plans: {
+            publishableKey: window.SNAPIT_CONFIG?.STRIPE_PUBLISHABLE_KEY || 'STRIPE_KEY_NOT_CONFIGURED',
+            plans: window.SNAPIT_CONFIG?.STRIPE_PLANS || {
                 starter: { priceId: 'price_starter_snapitqr', amount: '$3.99', name: 'Starter' },
                 professional: { priceId: 'price_professional_snapitqr', amount: '$9.99', name: 'Professional' },
                 business: { priceId: 'price_business_snapitqr', amount: '$29.99', name: 'Business' },
