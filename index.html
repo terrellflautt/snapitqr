@@ -2112,7 +2112,22 @@
             const btn = document.getElementById('shortenBtn');
             btn.classList.add('loading');
 
+            // Check authentication first
+            if (!currentUser) {
+                showToast('Please sign in to create short URLs', 'error');
+                btn.classList.remove('loading');
+                return;
+            }
+
             try {
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+
+                if (!authToken) {
+                    showToast('Please sign in to create short URLs', 'error');
+                    btn.classList.remove('loading');
+                    return;
+                }
+
                 const requestData = {
                     url: url,
                     domain: selectedDomain,
@@ -2130,12 +2145,15 @@
                 // Use our deployed API endpoint
                 let response;
                 try {
-                    // Update request data to match our API
-                    // Note: Backend doesn't support customAlias yet
+                    // Update request data to match our API with authenticated user
                     const apiRequestData = {
                         url: url,
-                        userId: 'anonymous' // Could be updated when user is authenticated
+                        userId: currentUser.id || currentUser.sub || currentUser.email
                     };
+
+                    if (customAlias) {
+                        apiRequestData.customCode = customAlias;
+                    }
                     
                     // Use appropriate API based on selected domain
                     const apiEndpoint = selectedDomain === 'snapiturl.com'
@@ -2146,22 +2164,13 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
                         },
                         body: JSON.stringify(apiRequestData)
                     });
-                } catch (corsError) {
-                    // Fallback: Generate a mock short URL and create QR code
-                    const shortCode = customAlias || Math.random().toString(36).substring(2, 8);
-                    const mockResult = {
-                        success: true,
-                        shortUrl: `https://${selectedDomain}/${shortCode}`,
-                        shortCode: shortCode,
-                        originalUrl: url
-                    };
-                    
-                    displayURLResult(mockResult);
-                    showToast('Short URL created! (Note: This is a demo - full functionality requires backend setup)', 'success');
-                    return;
+                } catch (fetchError) {
+                    console.error('API fetch error:', fetchError);
+                    throw new Error('Failed to connect to API. Please try again.');
                 }
 
                 const result = await response.json();
