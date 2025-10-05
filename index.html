@@ -361,17 +361,16 @@
             padding: 0 var(--space-4);
         }
 
-        /* Professional Floating Navigation */
+        /* Professional Top Navigation */
         .header {
-            position: fixed;
-            top: var(--space-4);
-            left: 50%;
-            transform: translateX(-50%);
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: var(--radius-2xl);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
             box-shadow: var(--shadow-2xl);
             padding: var(--space-4) var(--space-6);
             transition: all 0.3s ease;
@@ -467,7 +466,7 @@
 
         /* Hero Section */
         .hero {
-            padding: calc(var(--space-20) + 80px) 0 var(--space-16);
+            padding: var(--space-20) 0 var(--space-16);
             text-align: center;
         }
 
@@ -1642,45 +1641,8 @@
             try {
                 showToast('Authenticating...', 'info');
 
-                // Use unified authentication backend
-                const authResponse = await fetch('https://api.snapitforms.com/auth/google', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        credential: response.credential,
-                        source: 'snapitqr'
-                    })
-                });
-
-                if (!authResponse.ok) {
-                    const errorText = await authResponse.text();
-                    console.error('Auth error:', authResponse.status, errorText);
-                    throw new Error(`Authentication failed (${authResponse.status})`);
-                }
-
-                const authData = await authResponse.json();
-
-                if (authData.success) {
-                    // Store unified access key and user data
-                    localStorage.setItem('accessKey', authData.accessKey);
-                    localStorage.setItem('snapit_user_data', JSON.stringify(authData.user));
-
-                    currentUser = { ...currentUser, ...authData.user, accessKey: authData.accessKey };
-                    updateAuthUI(authData.user);
-
-                    showToast(`Welcome ${authData.user.name}! Unified SnapIT ecosystem access enabled.`, 'success');
-                    refreshDashboard();
-                } else {
-                    throw new Error(authData.error || 'Authentication failed');
-                }
-            } catch (error) {
-                console.error('Unified authentication error:', error);
-
-                // Fallback to local QR authentication
-                try {
-                    const fallbackResponse = await fetch('https://api.snapitqr.com/auth/google', {
+                // Use SnapIT QR authentication backend directly
+                const authResponse = await fetch('https://api.snapitqr.com/auth/google', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1691,24 +1653,24 @@
                         })
                     });
 
-                    if (fallbackResponse.ok) {
-                        const fallbackData = await fallbackResponse.json();
-                        if (fallbackData.success) {
-                            localStorage.setItem('snapitqr_token', fallbackData.token);
-                            localStorage.setItem('snapitqr_user', JSON.stringify(fallbackData.user));
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    if (authData.success) {
+                        localStorage.setItem('snapitqr_token', authData.token);
+                        localStorage.setItem('snapitqr_user', JSON.stringify(authData.user));
 
-                            currentUser = fallbackData.user;
-                            updateAuthUI(fallbackData.user);
+                        currentUser = authData.user;
+                        updateAuthUI(authData.user);
 
-                            showToast(`Welcome ${fallbackData.user.name}! (Local QR authentication)`, 'success');
-                            refreshDashboard();
-                            return;
-                        }
+                        showToast(`Welcome ${authData.user.name}!`, 'success');
+                        refreshDashboard();
+                        return;
                     }
-                } catch (fallbackError) {
-                    console.error('Fallback authentication also failed:', fallbackError);
                 }
 
+                showToast('Sign-in failed. Please try again.', 'error');
+            } catch (error) {
+                console.error('Authentication error:', error);
                 showToast(`Sign-in failed: ${error.message}`, 'error');
             }
         }
@@ -2324,14 +2286,14 @@
                         dynamicQRs = qrData.data.qrCodes || [];
                     }
 
-                    // Get short URLs
-                    const urlResponse = await fetch('https://api.snapitqr.com/short-urls', {
+                    // Get short URLs from snapiturl API
+                    const urlResponse = await fetch('https://api.snapiturl.com/short-urls', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
-                    
+
                     if (urlResponse.ok) {
                         const urlData = await urlResponse.json();
-                        shortUrls = urlData.data.shortUrls || [];
+                        shortUrls = urlData.data?.shortUrls || urlData.shortUrls || [];
                     }
                     
                 } catch (error) {
