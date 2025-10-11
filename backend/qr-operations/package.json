@@ -1,0 +1,11 @@
+{
+  "name": "snapitqr-qr-operations",
+  "version": "1.0.0",
+  "description": "QR code operations Lambda function for SnapIT QR",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "qrcode": "^1.5.4",
+    "uuid": "^10.0.0"
+  }
+}

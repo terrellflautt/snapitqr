@@ -1,0 +1,10 @@
+{
+  "name": "snapitqr-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda authorizer for rate limiting and authentication",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
