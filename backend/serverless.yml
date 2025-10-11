@@ -1,0 +1,282 @@
+service: snapitqr-unified
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'production'}
+  memorySize: 512
+  timeout: 30
+
+  # Environment variables from SSM Parameter Store
+  environment:
+    JWT_SECRET: ${ssm:/snapitqr/jwt-secret~true}
+    GOOGLE_CLIENT_ID: ${ssm:/snapitqr/google-client-id}
+    STRIPE_SECRET_KEY: ${ssm:/snapitqr/stripe-secret-key~true}
+    STRIPE_WEBHOOK_SECRET: ${ssm:/snapitqr/stripe-webhook-secret~true}
+    S3_BUCKET: snapitqr-assets
+    API_ENDPOINT: https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production
+
+  # IAM Role permissions
+  iam:
+    role:
+      statements:
+        # DynamoDB permissions
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-users
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-users/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-qrcodes
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-qrcodes/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-shorturls
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-shorturls/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-analytics
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-analytics/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-apikeys
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-apikeys/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/snapitqr-ratelimits
+
+        # S3 permissions for QR code images
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+            - s3:PutObjectAcl
+          Resource:
+            - arn:aws:s3:::snapitqr-assets/*
+
+        # SSM Parameter Store read access
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource:
+            - arn:aws:ssm:${self:provider.region}:*:parameter/snapitqr/*
+
+functions:
+  # QR Code Operations
+  qr-operations:
+    handler: qr-operations/index.handler
+    name: snapitqr-qr-operations
+    description: Handles QR code generation, listing, updating, and deletion
+    events:
+      - http:
+          path: /qr/generate
+          method: post
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /qr/list
+          method: get
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /qr/{id}
+          method: get
+          cors: true
+      - http:
+          path: /qr/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /qr/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+
+  # URL Shortener Operations
+  url-operations:
+    handler: url-operations/index.handler
+    name: snapitqr-url-operations
+    description: Handles URL shortening, redirects, and analytics
+    events:
+      - http:
+          path: /url/shorten
+          method: post
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /url/list
+          method: get
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /url/{shortCode}
+          method: delete
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /r/{shortCode}
+          method: get
+          cors: true
+
+  # Authentication Operations
+  auth-operations:
+    handler: auth-operations/index.handler
+    name: snapitqr-auth-operations
+    description: Handles Google OAuth authentication and JWT tokens
+    events:
+      - http:
+          path: /auth/google
+          method: post
+          cors: true
+      - http:
+          path: /auth/me
+          method: get
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+
+  # Stripe Payment Operations
+  stripe-operations:
+    handler: stripe-operations/index.handler
+    name: snapitqr-stripe-operations
+    description: Handles Stripe checkout, subscriptions, and webhooks
+    events:
+      - http:
+          path: /stripe/create-checkout
+          method: post
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /stripe/webhook
+          method: post
+          cors: true
+      - http:
+          path: /stripe/portal
+          method: post
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+
+  # User Operations
+  user-operations:
+    handler: user-operations/index.handler
+    name: snapitqr-user-operations
+    description: Handles user profile and usage statistics
+    events:
+      - http:
+          path: /user/usage
+          method: get
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /user/profile
+          method: get
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+      - http:
+          path: /user/profile
+          method: put
+          cors: true
+          authorizer:
+            name: authorizer
+            resultTtlInSeconds: 0
+
+  # Lambda Authorizer (Rate Limiting & Access Control)
+  authorizer:
+    handler: authorizer/index.handler
+    name: snapitqr-authorizer
+    description: JWT validation, rate limiting, and tier-based access control
+
+# Package configuration
+package:
+  individually: true
+  patterns:
+    - '!.git/**'
+    - '!.gitignore'
+    - '!*.md'
+    - '!*.sh'
+    - '!*.py'
+    - '!node_modules/aws-sdk/**'
+
+# Plugins
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3000
+    websocketPort: 3001
+    lambdaPort: 3002
+
+# Resources (DynamoDB Tables, S3 Buckets, etc.)
+resources:
+  Resources:
+    # S3 Bucket for QR Code Images
+    SnapITQRAssetsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: snapitqr-assets
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+              AllowedHeaders:
+                - '*'
+              MaxAge: 3000
+
+  Outputs:
+    ApiGatewayRestApiId:
+      Value:
+        Ref: ApiGatewayRestApi
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ApiId
+
+    ApiGatewayRestApiRootResourceId:
+      Value:
+        Fn::GetAtt:
+          - ApiGatewayRestApi
+          - RootResourceId
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ApiRootResourceId
+
+    ApiEndpoint:
+      Value:
+        Fn::Sub: https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ApiEndpoint

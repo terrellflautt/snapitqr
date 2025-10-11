@@ -1,0 +1,11 @@
+{
+  "name": "snapitqr-auth-operations",
+  "version": "1.0.0",
+  "description": "Authentication operations Lambda function for SnapIT QR",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0"
+  }
+}
