@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://accounts.google.com">
-    <link rel="preconnect" href="https://api.snapitqr.com">
-    <link rel="preconnect" href="https://api.snapiturl.com">
+    <link rel="preconnect" href="https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production">
+    <link rel="preconnect" href="https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1739,7 +1739,7 @@
                 showToast('Authenticating...', 'info');
 
                 // Use SnapIT QR authentication backend directly
-                const authResponse = await fetch('https://api.snapitqr.com/auth/google', {
+                const authResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/auth/google', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1949,7 +1949,7 @@
             const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
 
             try {
-                const response = await fetch('https://api.snapitqr.com/generate', {
+                const response = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2216,8 +2216,8 @@
                     
                     // Use appropriate API based on selected domain
                     const apiEndpoint = selectedDomain === 'snapiturl.com'
-                        ? 'https://api.snapiturl.com/shorten'
-                        : 'https://api.snapitqr.com/shorten';
+                        ? 'https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/shorten'
+                        : 'https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/shorten';
 
                     response = await fetch(apiEndpoint, {
                         method: 'POST',
@@ -2360,7 +2360,7 @@
             if (authToken) {
                 try {
                     // Get dashboard data
-                    const dashboardResponse = await fetch('https://api.snapitqr.com/dashboard-data', {
+                    const dashboardResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/dashboard-data', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
                     
@@ -2374,7 +2374,7 @@
                     }
 
                     // Get QR codes
-                    const qrResponse = await fetch('https://api.snapitqr.com/qr-codes', {
+                    const qrResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/qr-codes', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
                     
@@ -2384,7 +2384,7 @@
                     }
 
                     // Get short URLs from snapiturl API
-                    const urlResponse = await fetch('https://api.snapiturl.com/urls', {
+                    const urlResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/urls', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
 
@@ -2501,7 +2501,7 @@
 
             try {
                 const authToken = localStorage.getItem('authToken');
-                const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrCodeId}`, {
+                const response = await fetch(`https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/qr-codes/${qrCodeId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2727,7 +2727,7 @@
                 showToast(`Redirecting to payment for ${plan.name} plan (${amount}/${billingPeriod})...`, 'info');
 
                 // Call backend to create checkout session
-                const response = await fetch('https://api.snapitqr.com/create-checkout-session', {
+                const response = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/create-checkout-session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
