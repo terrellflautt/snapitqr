@@ -1,0 +1,9 @@
+{
+  "name": "snapitqr-router",
+  "version": "1.0.0",
+  "description": "Router Lambda function for SnapIT QR API Gateway",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0"
+  }
+}

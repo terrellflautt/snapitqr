@@ -1,21 +1,22 @@
 const AWS = require('aws-sdk');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const rateLimiter = require('./rate-limiter');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const TIER_LIMITS = {
   free: {
-    shortURLs: 100
+    shortURLs: 10
   },
-  starter: {
+  core: {
     shortURLs: 1000
   },
-  pro: {
-    shortURLs: 10000
+  growth: {
+    shortURLs: 5000
   },
   business: {
-    shortURLs: 100000
+    shortURLs: Infinity
   }
 };
 
@@ -47,13 +48,13 @@ exports.handler = async (event) => {
     // Route to appropriate handler
     if (path === '/url/shorten' && method === 'POST') {
       return await shortenURL(event, userId, userTier, headers);
-    } else if (path === '/url/list' && method === 'GET') {
+    } else if ((path === '/url/list' || path === '/short-urls') && method === 'GET') {
       return await listURLs(event, userId, headers);
-    } else if (path.startsWith('/url/') && method === 'GET') {
+    } else if ((path.startsWith('/url/') || path.startsWith('/short-urls/')) && method === 'GET') {
       return await getURL(event, headers);
-    } else if (path.startsWith('/url/') && method === 'PUT') {
+    } else if ((path.startsWith('/url/') || path.startsWith('/short-urls/')) && method === 'PUT') {
       return await updateURL(event, userId, headers);
-    } else if (path.startsWith('/url/') && method === 'DELETE') {
+    } else if ((path.startsWith('/url/') || path.startsWith('/short-urls/')) && method === 'DELETE') {
       return await deleteURL(event, userId, headers);
     } else if (path === '/r/{shortCode}' && method === 'GET') {
       return await redirectURL(event, headers);
@@ -104,8 +105,37 @@ async function shortenURL(event, userId, userTier, headers) {
     };
   }
 
-  // Check usage limits
-  if (userId) {
+  // For anonymous users, check IP-based rate limits
+  if (!userId || userId === 'anonymous') {
+    const sourceIp = event.requestContext.identity.sourceIp;
+    const userAgent = event.headers?.['User-Agent'] || 'Unknown';
+    const country = event.headers?.['CloudFront-Viewer-Country'] || 'Unknown';
+
+    const rateCheck = await rateLimiter.checkRateLimit(sourceIp, 'url', userAgent, country);
+
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({
+          error: rateCheck.error,
+          message: rateCheck.message,
+          limits: rateCheck.limits,
+          suggestion: rateCheck.suggestion,
+          retryAfter: 3600 // Suggest retry after 1 hour
+        })
+      };
+    }
+
+    // Add usage info to response headers for transparency
+    headers['X-Rate-Limit-Hourly-Limit'] = rateCheck.usage.hourly.limit;
+    headers['X-Rate-Limit-Hourly-Remaining'] = rateCheck.usage.hourly.remaining;
+    headers['X-Rate-Limit-Daily-Limit'] = rateCheck.usage.daily.limit;
+    headers['X-Rate-Limit-Daily-Remaining'] = rateCheck.usage.daily.remaining;
+  }
+
+  // For authenticated users, check tier-based usage limits
+  if (userId && userId !== 'anonymous') {
     const usage = await checkUsageLimit(userId, 'shortURLs', userTier);
     if (!usage.allowed) {
       return {
@@ -185,7 +215,20 @@ async function shortenURL(event, userId, userTier, headers) {
     metadata: { tier: userTier, hasCustomAlias: !!customAlias }
   });
 
-  const shortUrl = `https://snapiturl.com/${shortCode}`;
+  // Record action for rate limiting (async, don't wait)
+  if (!userId || userId === 'anonymous') {
+    const sourceIp = event.requestContext.identity.sourceIp;
+    rateLimiter.recordAction(sourceIp, 'url', userId || 'anonymous', {
+      shortCode,
+      urlId,
+      domain: body.domain || 'snapiturl.com'
+    }).catch(err => console.error('Failed to record rate limit action:', err));
+  }
+
+  // Determine which domain to use based on request
+  // Frontend can pass preferred domain in body
+  const preferredDomain = body.domain || 'snapiturl.com';
+  const shortUrl = `https://api.${preferredDomain}/r/${shortCode}`;
 
   return {
     statusCode: 201,
@@ -196,6 +239,7 @@ async function shortenURL(event, userId, userTier, headers) {
       shortCode,
       shortUrl,
       originalUrl: url,
+      domain: preferredDomain,
       message: 'URL shortened successfully'
     })
   };
@@ -514,9 +558,9 @@ async function redirectURL(event, headers) {
   }).promise();
 
   // Track analytics event
-  const userAgent = event.headers['User-Agent'] || 'Unknown';
+  const userAgent = event.headers?.['User-Agent'] || 'Unknown';
   const sourceIp = event.requestContext.identity.sourceIp;
-  const referer = event.headers['Referer'] || event.headers['referer'] || 'Direct';
+  const referer = event.headers?.['Referer'] || event.headers?.['referer'] || 'Direct';
 
   await trackAnalyticsEvent({
     eventType: 'url_clicked',
@@ -527,7 +571,7 @@ async function redirectURL(event, headers) {
       userAgent,
       sourceIp,
       referer,
-      country: event.headers['CloudFront-Viewer-Country'] || 'Unknown'
+      country: event.headers?.['CloudFront-Viewer-Country'] || 'Unknown'
     }
   });
 

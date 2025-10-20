@@ -1,0 +1,10 @@
+{
+  "name": "snapitqr-url-operations",
+  "version": "1.0.0",
+  "description": "URL shortener operations Lambda function for SnapIT URL",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "uuid": "^10.0.0"
+  }
+}

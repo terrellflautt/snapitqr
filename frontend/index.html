@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://accounts.google.com">
-    <link rel="preconnect" href="https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production">
-    <link rel="preconnect" href="https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production">
+    <link rel="preconnect" href="https://api.snapitqr.com">
+    <link rel="preconnect" href="https://api.snapiturl.com">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -41,235 +41,37 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Stripe for payment processing -->
     <script src="https://js.stripe.com/v3/"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js" defer onload="window.qriousLoaded = true;" onerror="console.error('Failed to load QRious library');"></script>
     
-    <!-- Ultimate Error Suppression System -->
+    <!-- Minimal Error Logging -->
     <script>
     (function() {
         'use strict';
-        
-        // Comprehensive URL patterns to block
-        const blockedPatterns = [
-            'play.google.com/log',
-            'google.com/log',
-            'accounts.google.com/gsi/log',
-            'googletagmanager.com/debug',
-            'google-analytics.com/debug',
-            'facebook.com/tr',
-            'doubleclick.net/pagead',
-            'ads.google.com',
-            'googlesyndication.com'
-        ];
-        
-        // Error message patterns to suppress (comprehensive)
-        const suppressedErrors = [
-            'ERR_BLOCKED_BY_CLIENT',
-            'net::ERR_BLOCKED_BY_CLIENT',
-            'ERR_NETWORK_CHANGED',
-            'ERR_INTERNET_DISCONNECTED',
-            'Cross-Origin-Opener-Policy',
-            'Cross-Origin-Embedder-Policy',
-            'Failed to load resource',
-            'SharedArrayBuffer',
-            'postMessage',
-            'Uncaught (in promise) FetchError',
-            'Uncaught (in promise)',
-            'TypeError: Failed to fetch',
-            'XHR failed loading',
-            'Fetch failed loading',
-            'POST https://play.google.com/log',
-            'POST https://accounts.google.com/gsi/log',
-            'No \'Access-Control-Allow-Origin\' header',
-            '404 (Not Found)',
-            '500 (Internal Server Error)'
-        ];
-        
-        // Ultra-aggressive console override system
-        function shouldSuppressMessage(message) {
-            const msgStr = String(message || '');
-            return suppressedErrors.some(pattern => msgStr.includes(pattern));
-        }
-        
-        // Override ALL console methods
-        const originalConsole = {
-            log: console.log,
-            error: console.error,
-            warn: console.warn,
-            info: console.info,
-            debug: console.debug
-        };
-        
-        console.error = function(...args) {
-            if (shouldSuppressMessage(args[0])) return;
-            return originalConsole.error.apply(console, args);
-        };
-        
-        console.warn = function(...args) {
-            if (shouldSuppressMessage(args[0])) return;
-            return originalConsole.warn.apply(console, args);
-        };
-        
-        console.info = function(...args) {
-            if (shouldSuppressMessage(args[0])) return;
-            return originalConsole.info.apply(console, args);
-        };
-        
-        // Override fetch to block problematic requests
-        const originalFetch = window.fetch;
-        window.fetch = function(...args) {
-            const url = args[0];
-            if (typeof url === 'string') {
-                for (const pattern of blockedPatterns) {
-                    if (url.includes(pattern)) {
-                        return Promise.reject(new Error('Blocked to prevent spam'));
-                    }
-                }
-            }
-            return originalFetch.apply(this, args);
-        };
-        
-        // Override XMLHttpRequest completely
-        const OriginalXHR = window.XMLHttpRequest;
-        window.XMLHttpRequest = function() {
-            const xhr = new OriginalXHR();
-            const originalOpen = xhr.open;
-            const originalSend = xhr.send;
-            
-            xhr.open = function(method, url, ...args) {
-                if (typeof url === 'string') {
-                    for (const pattern of blockedPatterns) {
-                        if (url.includes(pattern)) {
-                            // Create a fake successful response
-                            setTimeout(() => {
-                                xhr.readyState = 4;
-                                xhr.status = 200;
-                                xhr.responseText = '{}';
-                                if (xhr.onreadystatechange) xhr.onreadystatechange();
-                                if (xhr.onload) xhr.onload();
-                            }, 1);
-                            return;
-                        }
-                    }
-                }
-                return originalOpen.apply(xhr, [method, url, ...args]);
-            };
-            
-            xhr.send = function(...args) {
-                // Add error suppression
-                xhr.addEventListener('error', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                });
-                
-                try {
-                    return originalSend.apply(xhr, args);
-                } catch (e) {
-                    // Suppress XHR errors
-                }
-            };
-            
-            return xhr;
-        };
-        
-        // Comprehensive error event suppression
-        window.addEventListener('error', function(event) {
-            if (shouldSuppressMessage(event.message) || 
-                shouldSuppressMessage(event.error) ||
-                shouldSuppressMessage(event.filename)) {
-                event.preventDefault();
-                event.stopPropagation();
-                return false;
-            }
-        }, true);
-        
-        // Promise rejection suppression
-        window.addEventListener('unhandledrejection', function(event) {
-            if (shouldSuppressMessage(event.reason) ||
-                shouldSuppressMessage(event.reason?.message)) {
-                event.preventDefault();
-                return false;
-            }
-        });
-        
-        // Resource loading error suppression
-        window.addEventListener('error', function(event) {
-            if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'IMG')) {
-                const src = event.target.src || '';
-                for (const pattern of blockedPatterns) {
-                    if (src.includes(pattern)) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        return false;
-                    }
-                }
-            }
-        }, true);
-        
-        console.log('🛡️ Ultimate error suppression system activated');
-    })();
-    </script>
 
-    <!-- Additional Third-Party Error Handling -->
-    <script>
-    (function() {
-        'use strict';
-        
+        // Simple console log for initialization
+        console.log('SnapIT QR - Application Initializing');
+
         // Payment system status
         window.addEventListener('load', function() {
             setTimeout(function() {
-                console.log('💳 Payment system initialized successfully');
+                console.log('💳 Payment system initialized');
             }, 2000);
         });
-        
-        // Google Services error handling  
-        window.gapi_onload = function() {
-            console.log('✅ Google API loaded successfully');
-        };
-        
-        // Override XMLHttpRequest to catch network errors
-        const originalXHR = window.XMLHttpRequest;
-        window.XMLHttpRequest = function() {
-            const xhr = new originalXHR();
-            const originalSend = xhr.send;
-            
-            xhr.send = function(...args) {
-                xhr.addEventListener('error', function(e) {
-                    const url = xhr.responseURL || 'unknown';
-                    if (url.includes('google.com/log') || 
-                        url.includes('doubleclick.net')) {
-                        // Suppress these network errors
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                });
-                
-                return originalSend.apply(xhr, args);
-            };
-            
-            return xhr;
-        };
-        
-        // Handle Image loading errors
-        window.addEventListener('error', function(e) {
-            if (e.target && e.target.tagName === 'IMG') {
-                e.preventDefault();
-                console.log('🖼️ Image load error suppressed');
-            }
-        }, true);
-        
-        console.log('✅ Additional third-party error handling active');
     })();
     </script>
     
     <style>
         :root {
-            /* SnapIT Brand Colors - Updated to match ecosystem */
-            --primary: linear-gradient(135deg, #aa336a 0%, #ff0077 100%);
-            --primary-solid: #aa336a;
-            --primary-dark: #8b2d5a;
-            --secondary: linear-gradient(135deg, #ff0077 0%, #aa336a 100%);
-            --accent: linear-gradient(135deg, #ffcddf 0%, #f8e8ff 100%);
-            
+            /* SnapIT Brand Colors - Match SnapIT Polls, Burn, Forums */
+            --primary: #E91E63;
+            --primary-gradient: linear-gradient(135deg, #E91E63 0%, #C2185B 100%);
+            --primary-solid: #E91E63;
+            --primary-dark: #C2185B;
+            --primary-light: #F06292;
+            --secondary: #000000;
+            --accent: #FFF9C4;
+            --accent-dark: #FFF59D;
+
             /* Status Colors */
             --success: #10b981;
             --warning: #f59e0b;
@@ -324,9 +126,8 @@
 
         body {
             font-family: var(--font-family);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 20%, #f093fb 40%, #f5576c 60%, #4facfe 80%, #00f2fe 100%);
+            background: #FFF5F7;
             background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
             color: var(--gray-900);
             line-height: 1.6;
             min-height: 100vh;
@@ -461,10 +262,7 @@
         .hero h1 {
             font-size: clamp(2.5rem, 5vw, 4rem);
             font-weight: 900;
-            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #1e293b;
             margin-bottom: var(--space-6);
             line-height: 1.1;
         }
@@ -649,7 +447,7 @@
         }
 
         .badge-success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            background: #10b981;
             color: white;
         }
 
@@ -1273,11 +1071,35 @@
                     <a href="https://snapiturl.com" class="nav-link">URL Shortener</a>
                     
                     <!-- Auth Section -->
-                    <div id="authSection">
-                        <div id="signInButton">
+                    <div id="authSection" style="display: flex; align-items: center; gap: 1rem;">
+                        <div id="signInButton" style="display: flex; align-items: center; gap: 0.5rem;">
                             <div id="g_id_signin"></div>
+                            <!-- Custom backup sign-in button -->
+                            <button id="customSignInBtn" class="btn-sign-in" onclick="showCustomSignIn()" style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 0.5rem;
+                                padding: 0.625rem 1.25rem;
+                                background: white;
+                                color: #000;
+                                border: 1px solid #E91E63;
+                                border-radius: 0.5rem;
+                                font-weight: 600;
+                                font-size: 0.875rem;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                white-space: nowrap;
+                            " onmouseover="this.style.background='#FFF9C4'; this.style.borderColor='#C2185B';" onmouseout="this.style.background='white'; this.style.borderColor='#E91E63';">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                </svg>
+                                Sign In
+                            </button>
                         </div>
-                        <div id="userMenu" class="user-menu">
+                        <div id="userMenu" class="user-menu" style="display: none;">
                             <div class="user-info">
                                 <div id="userEmail" class="user-email"></div>
                                 <div id="userPlan" class="user-plan"></div>
@@ -1317,12 +1139,12 @@
             </div>
         </section>
 
-        <!-- Auth Section -->
-        <section class="auth-section" id="authCard">
-            <h3>🚀 Unlock Premium QR Features</h3>
-            <p style="color: var(--gray-600); margin-bottom: var(--space-6);">Sign in with Google to access dynamic QR codes, analytics, and URL shortening integration</p>
+        <!-- Auth Section (Hidden by default - shown only when not signed in) -->
+        <section class="auth-section" id="authCard" style="display: none;">
+            <h3>🚀 Sign In to Save & Manage</h3>
+            <p style="color: var(--gray-600); margin-bottom: var(--space-6);">Sign in to save your QR codes, create short URLs, and track analytics</p>
             <div id="g_id_signin_alt" style="display: inline-block;"></div>
-            
+
             <div class="auth-benefits">
                 <div class="auth-benefit">✨ Dynamic QR Codes</div>
                 <div class="auth-benefit">📈 Detailed Analytics</div>
@@ -1344,8 +1166,12 @@
                     <span class="stat-label">QR Codes Created</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value" id="totalScans">0</span>
-                    <span class="stat-label">Total Scans</span>
+                    <span class="stat-value" id="urlCount">0</span>
+                    <span class="stat-label">Short Links Created</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="totalClicks">0</span>
+                    <span class="stat-label">Total Clicks</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-value" id="currentPlan">Free</span>
@@ -1355,17 +1181,35 @@
 
             <div style="text-align: center; display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap; margin-bottom: var(--space-6);">
                 <button class="btn btn-secondary" onclick="refreshDashboard()">🔄 Refresh Data</button>
+                <button class="btn btn-secondary" onclick="showBulkUploadModal()">📤 Bulk Upload</button>
                 <button class="btn btn-primary" onclick="showUpgradeModal()">⭐ Upgrade Plan</button>
             </div>
 
-            <!-- QR Codes List -->
-            <div id="qrCodesList" style="margin-top: var(--space-6);">
-                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: var(--space-4); color: var(--gray-800);">
-                    📋 My QR Codes
-                </h3>
-                <div id="qrCodesContainer">
+            <!-- Tabs for QR Codes and Short URLs -->
+            <div class="dashboard-tabs" style="margin-top: var(--space-6);">
+                <div class="tab-buttons" style="display: flex; gap: var(--space-2); border-bottom: 2px solid var(--gray-200); margin-bottom: var(--space-4);">
+                    <button class="tab-btn active" onclick="switchDashboardTab('qr')" id="qrTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid var(--primary); font-weight: 600; color: var(--primary); cursor: pointer; font-size: 1rem;">
+                        📋 My QR Codes
+                    </button>
+                    <button class="tab-btn" onclick="switchDashboardTab('urls')" id="urlsTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid transparent; font-weight: 500; color: var(--gray-600); cursor: pointer; font-size: 1rem;">
+                        🔗 My Short Links
+                    </button>
+                </div>
+
+                <!-- QR Codes Tab Content -->
+                <div id="qrCodesList" class="tab-content">
+                    <div id="qrCodesContainer">
+                        <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
+                            No QR codes yet. Create your first QR code above! 👆
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Short URLs Tab Content -->
+                <div id="shortUrlsList" class="tab-content" style="display: none;">
+                    <div id="shortUrlsContainer">
                     <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
-                        No QR codes yet. Create your first QR code above! 👆
+                        No short links yet. Create your first short link above! 👆
                     </p>
                 </div>
             </div>
@@ -1394,7 +1238,7 @@
                 
                 <div class="form-group">
                     <label for="qrContent" class="form-label">Content</label>
-                    <textarea id="qrContent" class="form-textarea" placeholder="Enter URL, text, or any content..." rows="3" oninput="generateQRCode()"></textarea>
+                    <textarea id="qrContent" class="form-textarea" placeholder="Enter URL, text, or any content..." rows="3" oninput="debouncedGenerateQR()"></textarea>
                 </div>
                 
                 <div class="form-group">
@@ -1420,11 +1264,42 @@
                         <option value="500">Extra Large (500×500)</option>
                     </select>
                 </div>
-                
-                <button id="generateBtn" class="btn btn-primary btn-full btn-lg" onclick="generateQRCode()">
-                    <span>✨ Generate QR Code</span>
-                </button>
-                
+
+                <!-- Border Customization -->
+                <div class="form-group">
+                    <label class="form-label">Border</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label for="borderWidth" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Thickness (px)</label>
+                            <input type="number" id="borderWidth" class="form-select" value="0" min="0" max="20" onchange="generateQRCode()">
+                        </div>
+                        <div>
+                            <label for="borderColor" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Color</label>
+                            <input type="color" id="borderColor" value="#000000" class="color-input" onchange="generateQRCode()">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="borderStyle" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Style</label>
+                        <select id="borderStyle" class="form-select" onchange="generateQRCode()">
+                            <option value="solid">Solid</option>
+                            <option value="dashed">Dashed</option>
+                            <option value="dotted">Dotted</option>
+                            <option value="double">Double</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Text Above/Below QR Code -->
+                <div class="form-group">
+                    <label for="qrTextAbove" class="form-label">Text Above QR Code (optional)</label>
+                    <input type="text" id="qrTextAbove" class="form-select" placeholder="e.g., Scan to visit our website" maxlength="50" oninput="generateQRCode()">
+                </div>
+
+                <div class="form-group">
+                    <label for="qrTextBelow" class="form-label">Text Below QR Code (optional)</label>
+                    <input type="text" id="qrTextBelow" class="form-select" placeholder="e.g., www.example.com" maxlength="50" oninput="generateQRCode()">
+                </div>
+
                 <div id="qrPreview" class="qr-preview">
                     <div class="qr-placeholder">QR code will appear here</div>
                 </div>
@@ -1466,7 +1341,13 @@
                     </select>
                     <small style="color: var(--gray-500); font-size: 0.875rem;">Choose your preferred domain for the short URL</small>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="expirationDate" class="form-label">Expiration Date (Optional)</label>
+                    <input type="datetime-local" id="expirationDate" class="form-input" style="background-color: white;">
+                    <small style="color: var(--gray-500); font-size: 0.875rem;">Leave empty for no expiration. After this date, the short link will no longer work.</small>
+                </div>
+
                 <button id="shortenBtn" class="btn btn-primary btn-full btn-lg" onclick="shortenURL()">
                     <span>🚀 Create Short URL</span>
                 </button>
@@ -1686,6 +1567,18 @@
         // Global variables
         let currentUser = null;
         let currentQR = null;
+        let dynamicQRs = [];
+        let staticQRs = [];
+        let shortUrls = [];
+        let qrGenerateTimeout = null;
+
+        // Debounced QR generation (waits 1 second after user stops typing)
+        function debouncedGenerateQR() {
+            clearTimeout(qrGenerateTimeout);
+            qrGenerateTimeout = setTimeout(() => {
+                generateQRCode();
+            }, 1000);
+        }
 
         // Initialize app
         window.onload = function() {
@@ -1704,9 +1597,10 @@
                     auto_select: false,
                     cancel_on_tap_outside: true
                 });
-                
+
                 // Render sign-in buttons
                 const signInElements = ['g_id_signin', 'g_id_signin_alt'];
+                let googleButtonRendered = false;
                 signInElements.forEach(elementId => {
                     const element = document.getElementById(elementId);
                     if (element) {
@@ -1716,13 +1610,32 @@
                             text: 'sign_in_with',
                             shape: 'rectangular'
                         });
+                        googleButtonRendered = true;
                     }
                 });
-                
+
+                // Hide custom button if Google button rendered successfully
+                if (googleButtonRendered) {
+                    const customBtn = document.getElementById('customSignInBtn');
+                    if (customBtn) customBtn.style.display = 'none';
+                }
+
                 console.log('Google Sign-In initialized');
             } else {
-                console.warn('Google Sign-In not available');
-                setTimeout(initGoogleAuth, 1000); // Retry
+                console.warn('Google Sign-In not available, retrying...');
+                // Show custom button if Google fails after 3 seconds
+                setTimeout(() => {
+                    if (!window.google || !window.google.accounts) {
+                        console.log('Google Sign-In failed to load - showing custom button');
+                        const customBtn = document.getElementById('customSignInBtn');
+                        if (customBtn) {
+                            customBtn.style.display = 'inline-flex';
+                            customBtn.title = 'Sign in to save and manage your QR codes';
+                        }
+                    } else {
+                        initGoogleAuth(); // Retry once more
+                    }
+                }, 3000);
             }
         }
 
@@ -1739,7 +1652,7 @@
                 showToast('Authenticating...', 'info');
 
                 // Use SnapIT QR authentication backend directly
-                const authResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/auth/google', {
+                const authResponse = await fetch(`${window.SNAPIT_CONFIG.API_BASE_URL}/auth/google`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1812,21 +1725,42 @@
         // Update UI for authenticated user
         function updateAuthUI(user) {
             currentUser = user;
-            
-            // Hide auth card
+
+            // Hide auth card and sign-in buttons
             document.getElementById('authCard').style.display = 'none';
-            
+            document.getElementById('signInButton').style.display = 'none';
+
             // Show user menu
             const userMenu = document.getElementById('userMenu');
+            userMenu.style.display = 'flex';
             userMenu.classList.add('active');
-            
+
             // Update user info
             document.getElementById('userEmail').textContent = user.email;
             document.getElementById('userAvatar').src = user.picture;
             document.getElementById('userPlan').textContent = `${user.plan || 'Free'} Plan`;
-            
+
             // Show dashboard
             document.getElementById('dashboard').classList.add('show');
+        }
+
+        // Show custom sign-in prompt
+        function showCustomSignIn() {
+            // Try to trigger Google One Tap if available
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+                try {
+                    window.google.accounts.id.prompt();
+                } catch (error) {
+                    console.warn('Google One Tap not available, showing auth card');
+                }
+            }
+
+            // Scroll to auth card as fallback
+            const authCard = document.getElementById('authCard');
+            if (authCard) {
+                authCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                authCard.style.animation = 'pulse 1s ease-in-out 2';
+            }
         }
 
         // Sign out (unified)
@@ -1841,11 +1775,14 @@
 
             currentUser = null;
 
-            // Show auth card
+            // Show auth card and sign-in button
             document.getElementById('authCard').style.display = 'block';
+            document.getElementById('signInButton').style.display = 'flex';
 
             // Hide user menu and dashboard
-            document.getElementById('userMenu').classList.remove('active');
+            const userMenu = document.getElementById('userMenu');
+            userMenu.style.display = 'none';
+            userMenu.classList.remove('active');
             document.getElementById('dashboard').classList.remove('show');
 
             showToast('Signed out from SnapIT ecosystem', 'success');
@@ -1859,8 +1796,11 @@
                 return;
             }
 
-            const btn = document.getElementById('generateBtn');
-            btn.classList.add('loading');
+            // Show loading state (button might not exist during auto-generation)
+            const btn = document.getElementById('saveToCloudBtn');
+            if (btn) {
+                btn.classList.add('loading');
+            }
 
             try {
                 const options = {
@@ -1870,19 +1810,16 @@
                     errorCorrection: 'H'
                 };
 
-                const authToken = localStorage.getItem('snapitqr_token');
-                
-                if (authToken) {
-                    await generateDynamicQRCode(content, options);
-                } else {
-                    generateStaticQRCode(content, options);
-                }
+                // Always generate locally for preview - don't auto-save!
+                generateStaticQRCode(content, options);
 
             } catch (error) {
                 console.error('QR generation error:', error);
                 showToast('Failed to generate QR code', 'error');
             } finally {
-                btn.classList.remove('loading');
+                if (btn) {
+                    btn.classList.remove('loading');
+                }
             }
         }
 
@@ -1890,17 +1827,43 @@
         function generateStaticQRCode(content, options) {
             const container = document.getElementById('qrPreview');
             container.innerHTML = '';
-            
+
             if (typeof QRious === 'undefined') {
                 container.innerHTML = '<div class="qr-placeholder">❌ QR Code library not loaded</div>';
                 showToast('QR Code library failed to load', 'error');
                 return;
             }
-            
+
             try {
+                // Get customization options
+                const borderWidth = parseInt(document.getElementById('borderWidth')?.value || 0);
+                const borderColor = document.getElementById('borderColor')?.value || '#000000';
+                const borderStyle = document.getElementById('borderStyle')?.value || 'solid';
+                const textAbove = document.getElementById('qrTextAbove')?.value || '';
+                const textBelow = document.getElementById('qrTextBelow')?.value || '';
+
+                // Create wrapper div for QR code with border and text
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'inline-block';
+                wrapper.style.padding = borderWidth + 'px';
+                wrapper.style.border = borderWidth > 0 ? `${borderWidth}px ${borderStyle} ${borderColor}` : 'none';
+                wrapper.style.backgroundColor = options.backgroundColor;
+                wrapper.style.textAlign = 'center';
+
+                // Add text above if provided
+                if (textAbove) {
+                    const textAboveEl = document.createElement('div');
+                    textAboveEl.textContent = textAbove;
+                    textAboveEl.style.marginBottom = '10px';
+                    textAboveEl.style.fontWeight = '600';
+                    textAboveEl.style.color = options.foregroundColor;
+                    wrapper.appendChild(textAboveEl);
+                }
+
+                // Create QR code canvas
                 const canvas = document.createElement('canvas');
-                container.appendChild(canvas);
-                
+                wrapper.appendChild(canvas);
+
                 const qr = new QRious({
                     element: canvas,
                     value: content,
@@ -1909,33 +1872,36 @@
                     foreground: options.foregroundColor,
                     level: 'H'
                 });
-                
+
+                // Add text below if provided
+                if (textBelow) {
+                    const textBelowEl = document.createElement('div');
+                    textBelowEl.textContent = textBelow;
+                    textBelowEl.style.marginTop = '10px';
+                    textBelowEl.style.fontWeight = '600';
+                    textBelowEl.style.color = options.foregroundColor;
+                    wrapper.appendChild(textBelowEl);
+                }
+
+                container.appendChild(wrapper);
+
                 currentQR = {
                     content: content,
-                    options: options,
+                    options: {
+                        ...options,
+                        borderWidth,
+                        borderColor,
+                        borderStyle,
+                        textAbove,
+                        textBelow
+                    },
                     type: 'static',
                     timestamp: new Date().toISOString(),
                     dataURL: canvas.toDataURL()
                 };
-                
-                // Auto-save static QR codes to localStorage
-                const savedQR = saveStaticQRCode({
-                    content: content,
-                    dataURL: canvas.toDataURL(),
-                    customization: {
-                        size: options.size,
-                        foregroundColor: options.foregroundColor,
-                        backgroundColor: options.backgroundColor
-                    }
-                });
-                
-                if (savedQR) {
-                    console.log('Static QR code auto-saved to localStorage:', savedQR.id);
-                }
-                
+
+                // Don't auto-save - only save when user clicks Save button
                 showQRActions();
-                refreshDashboard(); // Update stats to include new static QR
-                showToast('QR code generated successfully!', 'success');
             } catch (error) {
                 console.error('Static QR generation error:', error);
                 container.innerHTML = '<div class="qr-placeholder">❌ Failed to generate QR code</div>';
@@ -1949,7 +1915,7 @@
             const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
 
             try {
-                const response = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/generate', {
+                const response = await fetch('https://api.snapitqr.com/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1968,11 +1934,14 @@
                 });
 
                 if (!response.ok) {
-                    if (response.status === 429) {
-                        showToast('QR generation limit reached. Upgrade for unlimited QR codes.', 'warning');
-                        return null;
-                    } else if (response.status === 403) {
-                        showToast('Please sign in to create dynamic QR codes.', 'error');
+                    if (response.status === 429 || response.status === 403) {
+                        const errorData = await response.json();
+                        if (errorData.upgradeRequired) {
+                            showToast('You\'ve reached your limit! Redirecting to upgrade...', 'warning');
+                            setTimeout(() => showUpgradeModal(), 1000);
+                            return null;
+                        }
+                        showToast(errorData.error || 'Limit reached. Please upgrade.', 'warning');
                         return null;
                     } else if (response.status === 413) {
                         showToast('QR content too large. Please shorten your content.', 'error');
@@ -2084,26 +2053,85 @@
             }
         }
 
-        // Save QR Code (placeholder for now)
-        function saveQRCode() {
-            const authToken = localStorage.getItem('snapitqr_token');
-            
-            if (currentQR && currentQR.type === 'dynamic') {
-                showToast('Dynamic QR code already saved to your dashboard!', 'success');
+        // Save QR Code
+        async function saveQRCode() {
+            // Use unified access key first, fallback to platform-specific token
+            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+
+            if (!currentQR) {
+                showToast('No QR code to save. Generate one first!', 'warning');
                 return;
             }
-            
-            if (currentQR && currentQR.type === 'static') {
-                showToast('✅ Static QR code saved to localStorage! Create dynamic QRs to save to cloud.', 'info');
+
+            // Get QR code content
+            const content = currentQR.content || document.getElementById('qrContent')?.value || '';
+
+            if (!content) {
+                showToast('No content to save', 'error');
                 return;
             }
-            
-            if (!authToken) {
-                showToast('Sign in to save dynamic QR codes to your dashboard', 'info');
-                return;
+
+            // If user is signed in, save to cloud API
+            if (authToken) {
+                try {
+                    const response = await fetch('https://api.snapitqr.com/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            content: content,
+                            type: 'static',
+                            name: `QR Code - ${new Date().toLocaleDateString()}`,
+                            customization: {
+                                size: currentQR.options?.size || 300,
+                                foregroundColor: currentQR.options?.foregroundColor || '#000000',
+                                backgroundColor: currentQR.options?.backgroundColor || '#FFFFFF',
+                                errorCorrection: 'H'
+                            }
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        showToast('✅ QR code saved to your dashboard!', 'success');
+                        // Mark as saved
+                        currentQR.type = 'saved';
+                        currentQR.qrId = result.qrId;
+                        // Refresh dashboard to show new QR
+                        refreshDashboard();
+                    } else {
+                        const error = await response.json();
+                        showToast(error.message || 'Failed to save QR code', 'error');
+                    }
+                } catch (error) {
+                    console.error('Save QR error:', error);
+                    showToast('Failed to save QR code to cloud', 'error');
+                }
+            } else {
+                // Not signed in - save locally only
+                const qrPreview = document.getElementById('qrPreview');
+                const img = qrPreview.querySelector('img') || qrPreview.querySelector('canvas');
+
+                if (!img) {
+                    showToast('No QR code image found', 'error');
+                    return;
+                }
+
+                const savedQR = saveStaticQRCode({
+                    content: content,
+                    dataURL: img.src || img.toDataURL(),
+                    customization: currentQR.options || {}
+                });
+
+                if (savedQR) {
+                    showToast('✅ QR code saved to your device! Sign in to sync across devices.', 'success');
+                    refreshDashboard();
+                } else {
+                    showToast('Failed to save QR code', 'error');
+                }
             }
-            
-            showToast('No QR code to save', 'warning');
         }
 
         // Share QR Code
@@ -2155,7 +2183,8 @@
             // Check usage limits for authenticated users
             if (currentUser && window.userStats) {
                 if (window.userStats.tier === 'free' && window.userStats.urlUsed >= window.userStats.urlLimit) {
-                    showToast(`Free tier limit reached (${window.userStats.urlLimit} short URLs). Please upgrade to create more URLs.`, 'warning');
+                    showToast(`You've reached your limit of ${window.userStats.urlLimit} short URLs! Upgrade for more.`, 'warning');
+                    setTimeout(() => showUpgradeModal(), 1000);
                     return;
                 }
             }
@@ -2198,7 +2227,15 @@
                     if (!/^[a-zA-Z0-9-_]+$/.test(customAlias)) {
                         throw new Error('Custom alias can only contain letters, numbers, hyphens, and underscores');
                     }
-                    requestData.customCode = customAlias;
+                    requestData.customAlias = customAlias;
+                }
+
+                // Add expiration date if provided
+                const expirationDate = document.getElementById('expirationDate').value;
+                if (expirationDate) {
+                    // Convert to ISO string for API
+                    const expirationTimestamp = new Date(expirationDate).toISOString();
+                    requestData.expiresAt = expirationTimestamp;
                 }
 
                 // Use our deployed API endpoint
@@ -2211,13 +2248,15 @@
                     };
 
                     if (customAlias) {
-                        apiRequestData.customCode = customAlias;
+                        apiRequestData.customAlias = customAlias;
                     }
-                    
+
+                    if (requestData.expiresAt) {
+                        apiRequestData.expiresAt = requestData.expiresAt;
+                    }
+
                     // Use appropriate API based on selected domain
-                    const apiEndpoint = selectedDomain === 'snapiturl.com'
-                        ? 'https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/shorten'
-                        : 'https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/shorten';
+                    const apiEndpoint = 'https://api.snapitqr.com/url/shorten';
 
                     response = await fetch(apiEndpoint, {
                         method: 'POST',
@@ -2349,24 +2388,60 @@
             }
         }
 
+        // Switch between dashboard tabs
+        function switchDashboardTab(tab) {
+            const qrTab = document.getElementById('qrTab');
+            const urlsTab = document.getElementById('urlsTab');
+            const qrList = document.getElementById('qrCodesList');
+            const urlsList = document.getElementById('shortUrlsList');
+
+            if (tab === 'qr') {
+                qrTab.style.borderBottom = '3px solid var(--primary)';
+                qrTab.style.color = 'var(--primary)';
+                qrTab.style.fontWeight = '600';
+                urlsTab.style.borderBottom = '3px solid transparent';
+                urlsTab.style.color = 'var(--gray-600)';
+                urlsTab.style.fontWeight = '500';
+                qrList.style.display = 'block';
+                urlsList.style.display = 'none';
+            } else {
+                urlsTab.style.borderBottom = '3px solid var(--primary)';
+                urlsTab.style.color = 'var(--primary)';
+                urlsTab.style.fontWeight = '600';
+                qrTab.style.borderBottom = '3px solid transparent';
+                qrTab.style.color = 'var(--gray-600)';
+                qrTab.style.fontWeight = '500';
+                qrList.style.display = 'none';
+                urlsList.style.display = 'block';
+            }
+        }
+
         async function refreshDashboard() {
-            const authToken = localStorage.getItem('snapitqr_token');
-            const staticQRs = getStaticQRCodes();
-            let dynamicQRs = [];
-            let shortUrls = [];
+            // Use unified access key first, fallback to platform-specific token
+            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            staticQRs = getStaticQRCodes();
+            dynamicQRs = [];
+            shortUrls = [];  // Fixed: removed 'let' to use global variable
             window.userStats = { tier: 'free', qrUsed: 0, urlUsed: 0, qrLimit: 1, urlLimit: 3 };
-            
+
             // Get dynamic data if authenticated
             if (authToken) {
                 try {
                     // Get dashboard data
-                    const dashboardResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/dashboard-data', {
+                    const dashboardResponse = await fetch('https://api.snapitqr.com/dashboard-data', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
-                    
+
                     if (dashboardResponse.ok) {
                         const dashboardData = await dashboardResponse.json();
-                        window.userStats = dashboardData.data.user.subscription;
+                        // Fixed: Merge subscription data instead of replacing entire object
+                        window.userStats = {
+                            tier: dashboardData.data?.user?.subscription?.tier || 'free',
+                            qrUsed: dashboardData.data?.user?.subscription?.qrUsed || 0,
+                            urlUsed: dashboardData.data?.user?.subscription?.urlUsed || 0,
+                            qrLimit: dashboardData.data?.user?.subscription?.qrLimit || 1,
+                            urlLimit: dashboardData.data?.user?.subscription?.urlLimit || 3
+                        };
                         
                         // Update user plan display
                         document.getElementById('currentPlan').textContent = 
@@ -2374,17 +2449,17 @@
                     }
 
                     // Get QR codes
-                    const qrResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/qr-codes', {
+                    const qrResponse = await fetch('https://api.snapitqr.com/qr-codes', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
-                    
+
                     if (qrResponse.ok) {
                         const qrData = await qrResponse.json();
-                        dynamicQRs = qrData.data.qrCodes || [];
+                        dynamicQRs = qrData.qrCodes || qrData.data?.qrCodes || [];
                     }
 
                     // Get short URLs from snapiturl API
-                    const urlResponse = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/urls', {
+                    const urlResponse = await fetch('https://api.snapitqr.com/short-urls', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
 
@@ -2402,21 +2477,51 @@
             // Calculate totals
             const totalQRs = staticQRs.length + dynamicQRs.length;
             const totalScans = dynamicQRs.reduce((sum, qr) => sum + (qr.scans || 0), 0);
+            const totalURLs = shortUrls.length;
+            const totalClicks = shortUrls.reduce((sum, url) => sum + (url.clicks || 0), 0);
 
             // Update dashboard stats
             document.getElementById('qrCount').textContent = totalQRs;
-            document.getElementById('totalScans').textContent = totalScans.toLocaleString();
+            document.getElementById('urlCount').textContent = totalURLs;
+            document.getElementById('totalClicks').textContent = totalClicks.toLocaleString();
             document.getElementById('currentPlan').textContent =
                 window.userStats.tier.charAt(0).toUpperCase() + window.userStats.tier.slice(1);
 
             // Display QR codes list
             displayQRCodesList();
 
+            // Display short URLs list
+            displayShortURLsList();
+
             // Show usage limits for authenticated users
             if (authToken) {
                 const qrUsage = `${window.userStats.qrUsed}/${window.userStats.qrLimit}`;
                 const urlUsage = `${window.userStats.urlUsed}/${window.userStats.urlLimit}`;
                 showToast(`Usage: ${qrUsage} Dynamic QRs, ${urlUsage} Short URLs`, 'info');
+            }
+        }
+
+        // Generate QR code thumbnail data URL
+        function generateQRThumbnail(content, customization = {}) {
+            try {
+                if (!window.QRious || !window.qriousLoaded) {
+                    // Return placeholder if QRious not loaded yet
+                    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#f0f0f0"/><text x="50" y="50" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#666">Loading...</text></svg>');
+                }
+                const canvas = document.createElement('canvas');
+                const size = 100; // Thumbnail size
+                const qrious = new QRious({
+                    element: canvas,
+                    value: content || 'https://example.com',
+                    size: size,
+                    background: customization.backgroundColor || '#FFFFFF',
+                    foreground: customization.foregroundColor || '#000000',
+                    level: 'H'
+                });
+                return canvas.toDataURL();
+            } catch (error) {
+                console.error('Thumbnail generation error:', error);
+                return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#f0f0f0"/><text x="50" y="50" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#666">QR Code</text></svg>');
             }
         }
 
@@ -2435,11 +2540,16 @@
                 return;
             }
 
-            container.innerHTML = allQRs.map(qr => `
+            container.innerHTML = allQRs.map(qr => {
+                // Generate thumbnail from content if URL not available
+                const thumbnailUrl = qr.qrUrl || qr.qrCodeUrl || qr.url ||
+                    generateQRThumbnail(qr.content || qr.destinationUrl, qr.customization);
+
+                return `
                 <div class="glass-card" style="margin-bottom: var(--space-4); padding: var(--space-4);">
                     <div style="display: flex; gap: var(--space-4); align-items: start;">
                         <div style="flex-shrink: 0;">
-                            <img src="${qr.qrCodeUrl || qr.url}" alt="QR Code"
+                            <img src="${thumbnailUrl}" alt="QR Code"
                                  style="width: 100px; height: 100px; border-radius: 8px; border: 2px solid var(--gray-200);">
                         </div>
                         <div style="flex: 1; min-width: 0;">
@@ -2460,54 +2570,246 @@
                                 <span>📅 ${qr.createdAt ? new Date(qr.createdAt).toLocaleDateString() : 'Today'}</span>
                             </div>
                         </div>
-                        <div style="display: flex; gap: var(--space-2); flex-shrink: 0;">
+                        <div style="display: flex; gap: var(--space-2); flex-shrink: 0; flex-wrap: wrap;">
                             ${qr.type === 'dynamic' ? `
-                                <button class="btn btn-secondary" onclick="editQRCode('${qr.qrCodeId}')"
+                                <button class="btn btn-secondary" onclick="editQRCode('${qr.qrId}')"
                                         style="padding: 8px 12px; font-size: 0.875rem;">
-                                    ✏️ Edit
+                                    ✏️ Edit Destination
                                 </button>
-                            ` : ''}
-                            <button class="btn btn-secondary" onclick="downloadQRFromList('${qr.qrCodeUrl || qr.url}', '${qr.name || 'qr-code'}')"
+                            ` : `
+                                <button class="btn btn-secondary" onclick="upgradeToDynamic('${qr.id}', '${escapeHtml(qr.content || '')}')"
+                                        style="padding: 8px 12px; font-size: 0.875rem;">
+                                    🔄 Make Editable
+                                </button>
+                            `}
+                            <button class="btn btn-primary" onclick="showQRCustomizationEditor('${qr.qrId || qr.id}', '${qr.type}')"
+                                    style="padding: 8px 12px; font-size: 0.875rem; background: linear-gradient(135deg, var(--primary) 0%, #ec4899 100%);">
+                                🎨 Customize
+                            </button>
+                            <button class="btn btn-secondary" onclick="downloadQRFromList('${qr.qrId || qr.id}', '${qr.type}', '${qr.name || 'qr-code'}')"
                                     style="padding: 8px 12px; font-size: 0.875rem;">
                                 💾 Download
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteQRCode('${qr.qrId || qr.id}', '${qr.type}')"
+                                    style="padding: 8px 12px; font-size: 0.875rem; background: var(--error); color: white;">
+                                🗑️ Delete
                             </button>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+        }).join('');
+        }
+
+        // Helper function to escape HTML for safe string interpolation
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Upgrade static QR code to dynamic (requires sign-in)
+        async function upgradeToDynamic(qrId, content) {
+            // Check if user is signed in
+            if (!currentUser) {
+                // Show sign-in modal with explanation
+                const shouldSignIn = await showConfirmModal(
+                    '✨ Make This QR Code Editable!<br><br>' +
+                    'To edit the destination URL of your QR code, you need to sign in.<br><br>' +
+                    'With a dynamic QR code, you can:<br>' +
+                    '• Change where it points anytime<br>' +
+                    '• Track scans and analytics<br>' +
+                    '• Keep the same QR image\n\n' +
+                    'Sign in now to upgrade this QR code?'
+                );
+
+                if (shouldSignIn) {
+                    // Show auth card
+                    document.getElementById('authCard').style.display = 'block';
+                    document.getElementById('authCard').scrollIntoView({ behavior: 'smooth' });
+                    showToast('Please sign in to make your QR code editable', 'info');
+
+                    // Store pending upgrade in localStorage
+                    localStorage.setItem('pendingQRUpgrade', JSON.stringify({ qrId, content }));
+                }
+                return;
+            }
+
+            // User is signed in - create dynamic QR code
+            try {
+                showToast('Converting to dynamic QR code...', 'info');
+
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const response = await fetch('https://api.snapitqr.com/qr-codes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        destinationUrl: content,
+                        isDynamic: true,
+                        name: 'Dynamic QR Code'
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showToast('✨ QR code is now dynamic! You can edit the destination anytime.', 'success');
+
+                    // Remove from static QR codes in localStorage
+                    const staticQRs = JSON.parse(localStorage.getItem('static_qr_codes') || '[]');
+                    const updated = staticQRs.filter(qr => qr.id !== qrId);
+                    localStorage.setItem('static_qr_codes', JSON.stringify(updated));
+
+                    // Refresh dashboard to show the new dynamic QR
+                    await refreshDashboard();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to create dynamic QR code', 'error');
+                }
+            } catch (error) {
+                console.error('Upgrade to dynamic error:', error);
+                showToast('Failed to convert to dynamic QR code', 'error');
+            }
         }
 
         // Download QR code from list
-        function downloadQRFromList(url, name) {
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${name}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('QR code downloaded!', 'success');
+        async function downloadQRFromList(qrId, qrType, name) {
+            try {
+                // Find the QR code
+                const qr = qrType === 'dynamic'
+                    ? dynamicQRs.find(q => q.qrId === qrId)
+                    : staticQRs.find(q => q.id === qrId);
+
+                if (!qr) {
+                    showToast('QR code not found', 'error');
+                    return;
+                }
+
+                // Get customization settings
+                const customization = qr.customization || {};
+                const fgColor = customization.foregroundColor || '#000000';
+                const bgColor = customization.backgroundColor || '#FFFFFF';
+                const borderWidth = customization.borderWidth || 0;
+                const borderColor = customization.borderColor || '#000000';
+                const borderStyle = customization.borderStyle || 'solid';
+                const textAbove = customization.textAbove || '';
+                const textBelow = customization.textBelow || '';
+                const size = customization.size || 300;
+
+                // Create offscreen canvas to render the complete QR code with customizations
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Calculate dimensions for text
+                ctx.font = 'bold 16px Arial';
+                const textAboveHeight = textAbove ? 30 : 0;
+                const textBelowHeight = textBelow ? 30 : 0;
+                const totalBorderWidth = borderWidth * 2;
+
+                // Set canvas size to include border and text
+                canvas.width = size + totalBorderWidth;
+                canvas.height = size + totalBorderWidth + textAboveHeight + textBelowHeight;
+
+                // Fill background with border color first
+                ctx.fillStyle = borderColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Fill inner area with background color
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(borderWidth, borderWidth, canvas.width - totalBorderWidth, canvas.height - totalBorderWidth);
+
+                // Draw text above if provided
+                if (textAbove) {
+                    ctx.fillStyle = fgColor;
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(textAbove, canvas.width / 2, borderWidth + textAboveHeight / 2);
+                }
+
+                // Generate QR code on temporary canvas
+                const qrCanvas = document.createElement('canvas');
+                const qrious = new QRious({
+                    element: qrCanvas,
+                    value: qr.content || qr.destinationUrl || qr.url || '',
+                    size: size,
+                    background: bgColor,
+                    foreground: fgColor,
+                    level: 'H'
+                });
+
+                // Draw QR code onto main canvas
+                ctx.drawImage(qrCanvas, borderWidth, borderWidth + textAboveHeight);
+
+                // Draw text below if provided
+                if (textBelow) {
+                    ctx.fillStyle = fgColor;
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(textBelow, canvas.width / 2, borderWidth + textAboveHeight + size + textBelowHeight / 2);
+                }
+
+                // Draw border if style is not solid (solid is already drawn with background)
+                if (borderWidth > 0 && borderStyle !== 'solid') {
+                    ctx.strokeStyle = borderColor;
+                    ctx.lineWidth = borderWidth;
+
+                    if (borderStyle === 'dashed') {
+                        ctx.setLineDash([10, 5]);
+                    } else if (borderStyle === 'dotted') {
+                        ctx.setLineDash([2, 3]);
+                    } else if (borderStyle === 'double') {
+                        // Draw double border
+                        ctx.lineWidth = borderWidth / 3;
+                        ctx.strokeRect(borderWidth / 3, borderWidth / 3, canvas.width - borderWidth / 1.5, canvas.height - borderWidth / 1.5);
+                        ctx.strokeRect(borderWidth - borderWidth / 3, borderWidth - borderWidth / 3, canvas.width - totalBorderWidth + borderWidth / 1.5, canvas.height - totalBorderWidth + borderWidth / 1.5);
+                    }
+
+                    if (borderStyle !== 'double') {
+                        ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvas.width - borderWidth, canvas.height - borderWidth);
+                    }
+                }
+
+                // Download the canvas
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${name || 'snapit-qr'}-${Date.now()}.png`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast('QR code with customizations downloaded!', 'success');
+                }, 'image/png');
+
+            } catch (error) {
+                console.error('Download error:', error);
+                showToast('Failed to download QR code', 'error');
+            }
         }
 
         // Edit dynamic QR code
-        async function editQRCode(qrCodeId) {
-            const qr = dynamicQRs.find(q => q.qrCodeId === qrCodeId);
+        async function editQRCode(qrId) {
+            const qr = dynamicQRs.find(q => q.qrId === qrId);
             if (!qr) {
                 showToast('QR code not found', 'error');
                 return;
             }
 
-            const newUrl = prompt('Enter new destination URL:', qr.destinationUrl);
-            if (!newUrl || newUrl === qr.destinationUrl) return;
+            const newUrl = await showPromptModal('Enter the new destination URL where this QR code should redirect:', qr.content || qr.destinationUrl, 'Edit QR Code Destination');
+            if (!newUrl || newUrl === (qr.content || qr.destinationUrl)) return;
 
             try {
                 const authToken = localStorage.getItem('authToken');
-                const response = await fetch(`https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/qr-codes/${qrCodeId}`, {
+                const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
                     },
-                    body: JSON.stringify({ destinationUrl: newUrl })
+                    body: JSON.stringify({ content: newUrl })
                 });
 
                 if (response.ok) {
@@ -2523,44 +2825,314 @@
             }
         }
 
-        // Stripe Configuration - Uses external config for security
+        // Delete QR code
+        async function deleteQRCode(qrId, type) {
+            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+
+            // Confirm deletion
+            if (!confirm('Are you sure you want to delete this QR code? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                if (type === 'static') {
+                    // Delete from localStorage
+                    const staticQRs = getStaticQRCodes();
+                    const updatedQRs = staticQRs.filter(qr => qr.id !== qrId);
+                    localStorage.setItem('snapitqr_static_qrs', JSON.stringify(updatedQRs));
+                    showToast('✅ QR code deleted from your device!', 'success');
+                    refreshDashboard();
+                } else {
+                    // Delete dynamic QR from API
+                    if (!authToken) {
+                        showToast('Please sign in to delete cloud QR codes', 'error');
+                        return;
+                    }
+
+                    const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        showToast('✅ QR code deleted successfully!', 'success');
+                        refreshDashboard();
+                    } else {
+                        const error = await response.json();
+                        showToast(error.message || 'Failed to delete QR code', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Delete QR error:', error);
+                showToast('Failed to delete QR code', 'error');
+            }
+        }
+
+        // Display Short URLs list
+        function displayShortURLsList() {
+            const container = document.getElementById('shortUrlsContainer');
+
+            if (shortUrls.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
+                        No short links yet. Create your first short link above! 👆
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = shortUrls.map(url => {
+                const domain = url.shortUrl?.includes('snapiturl.com') ? 'snapiturl.com' : 'snapitqr.com';
+                const shortCode = url.shortCode || url.shortUrl?.split('/').pop() || '';
+                const fullShortUrl = url.shortUrl || `https://${domain}/${shortCode}`;
+                const expiresText = url.expiresAt ? new Date(url.expiresAt).toLocaleDateString() : 'Never';
+                const clicks = url.clicks || 0;
+                const createdDate = url.createdAt ? new Date(url.createdAt).toLocaleDateString() : 'Today';
+
+                return `
+                <div class="glass-card" style="margin-bottom: var(--space-4); padding: var(--space-4);">
+                    <div style="display: flex; gap: var(--space-4); align-items: start; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                <span style="font-weight: 600; color: var(--gray-800); font-size: 1rem;">
+                                    ${url.title || 'Short Link'}
+                                </span>
+                                <span class="badge badge-primary" style="font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">
+                                    ${domain}
+                                </span>
+                            </div>
+
+                            <div style="margin-bottom: var(--space-3);">
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                    <span style="color: var(--gray-500); font-size: 0.875rem;">🔗 Short URL:</span>
+                                    <a href="${fullShortUrl}" target="_blank"
+                                       style="color: var(--primary-600); font-weight: 500; text-decoration: none; word-break: break-all;">
+                                        ${fullShortUrl}
+                                    </a>
+                                    <button onclick="copyToClipboard('${fullShortUrl}')"
+                                            style="padding: 4px 8px; font-size: 0.75rem; background: var(--gray-100); border: 1px solid var(--gray-300); border-radius: 4px; cursor: pointer;"
+                                            title="Copy to clipboard">
+                                        📋
+                                    </button>
+                                </div>
+                                <div style="color: var(--gray-600); font-size: 0.875rem; word-break: break-all;">
+                                    <span style="color: var(--gray-500);">→</span> ${url.originalUrl || url.targetUrl || 'No destination'}
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: 0.875rem; color: var(--gray-500);">
+                                <span>📊 ${clicks} clicks</span>
+                                <span>📅 Created: ${createdDate}</span>
+                                <span>⏰ Expires: ${expiresText}</span>
+                                ${url.status ? `<span class="badge ${url.status === 'active' ? 'badge-success' : 'badge-secondary'}" style="font-size: 0.75rem;">
+                                    ${url.status}
+                                </span>` : ''}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="viewAnalytics('${shortCode}')"
+                                    style="padding: 8px 16px; font-size: 0.875rem; white-space: nowrap;">
+                                📈 View Analytics
+                            </button>
+                            <button class="btn btn-secondary" onclick="editShortURL('${shortCode}')"
+                                    style="padding: 8px 16px; font-size: 0.875rem;">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-secondary" onclick="deleteShortURL('${shortCode}')"
+                                    style="padding: 8px 16px; font-size: 0.875rem; background: var(--red-50); color: var(--red-600);">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                showToast('Failed to copy', 'error');
+            });
+        }
+
+        // View analytics for short URL
+        async function viewAnalytics(shortCode) {
+            showToast('Loading analytics...', 'info');
+
+            try {
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const response = await fetch(`https://api.snapitqr.com/analytics/url/${shortCode}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayAnalyticsModal(data, shortCode);
+                } else {
+                    showToast('Failed to load analytics', 'error');
+                }
+            } catch (error) {
+                console.error('Analytics error:', error);
+                showToast('Failed to load analytics', 'error');
+            }
+        }
+
+        // Display analytics modal
+        function displayAnalyticsModal(data, shortCode) {
+            const modalHtml = `
+                <div id="analyticsModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;">
+                    <div style="background: white; border-radius: 12px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 24px;">
+                            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-800);">📈 Analytics for /${shortCode}</h2>
+                            <button onclick="closeAnalyticsModal()" style="padding: 8px 16px; background: var(--gray-100); border: none; border-radius: 6px; cursor: pointer; font-size: 1.25rem;">×</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div style="background: var(--blue-50); padding: 16px; border-radius: 8px;">
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--blue-600);">${data.totalClicks || 0}</div>
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">Total Clicks</div>
+                            </div>
+                            <div style="background: var(--green-50); padding: 16px; border-radius: 8px;">
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--green-600);">${data.uniqueVisitors || 0}</div>
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">Unique Visitors</div>
+                            </div>
+                            <div style="background: var(--purple-50); padding: 16px; border-radius: 8px;">
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--purple-600);">${data.clicksToday || 0}</div>
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">Today</div>
+                            </div>
+                            <div style="background: var(--orange-50); padding: 16px; border-radius: 8px;">
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--orange-600);">${data.clicksThisWeek || 0}</div>
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">This Week</div>
+                            </div>
+                        </div>
+
+                        <div id="analyticsChart" style="margin-top: 24px; height: 300px; background: var(--gray-50); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--gray-500);">
+                            📊 Chart will display here
+                        </div>
+
+                        ${data.recentClicks && data.recentClicks.length > 0 ? `
+                        <div style="margin-top: 24px;">
+                            <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 12px; color: var(--gray-800);">Recent Clicks</h3>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                ${data.recentClicks.slice(0, 10).map(click => `
+                                    <div style="padding: 8px; border-bottom: 1px solid var(--gray-200); font-size: 0.875rem;">
+                                        <span style="color: var(--gray-600);">${new Date(click.timestamp).toLocaleString()}</span>
+                                        ${click.country ? `<span style="margin-left: 12px;">🌍 ${click.country}</span>` : ''}
+                                        ${click.referer && click.referer !== 'Direct' ? `<span style="margin-left: 12px;">🔗 ${click.referer}</span>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeAnalyticsModal() {
+            const modal = document.getElementById('analyticsModal');
+            if (modal) modal.remove();
+        }
+
+        // Edit short URL
+        async function editShortURL(shortCode) {
+            const url = shortUrls.find(u => u.shortCode === shortCode);
+            if (!url) {
+                showToast('URL not found', 'error');
+                return;
+            }
+
+            const newDestination = await showPromptModal('Enter the new destination URL where this short link should redirect:', url.originalUrl || url.targetUrl, 'Edit Short Link Destination');
+            if (!newDestination || newDestination === (url.originalUrl || url.targetUrl)) return;
+
+            try {
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const response = await fetch(`https://api.snapitqr.com/short-urls/${shortCode}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ originalUrl: newDestination })
+                });
+
+                if (response.ok) {
+                    showToast('Short URL updated successfully!', 'success');
+                    await refreshDashboard();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to update URL', 'error');
+                }
+            } catch (error) {
+                console.error('Edit URL error:', error);
+                showToast('Failed to update URL', 'error');
+            }
+        }
+
+        // Delete short URL
+        async function deleteShortURL(shortCode) {
+            const confirmed = await showConfirmModal('Are you sure you want to delete this short link? This action cannot be undone.', 'Delete Short Link');
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const response = await fetch(`https://api.snapitqr.com/short-urls/${shortCode}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Short URL deleted successfully!', 'success');
+                    await refreshDashboard();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to delete URL', 'error');
+                }
+            } catch (error) {
+                console.error('Delete URL error:', error);
+                showToast('Failed to delete URL', 'error');
+            }
+        }
+
+        // Stripe Configuration - LIVE MODE
         const STRIPE_CONFIG = {
-            publishableKey: window.SNAPIT_CONFIG?.STRIPE_PUBLISHABLE_KEY || 'STRIPE_KEY_NOT_CONFIGURED',
+            publishableKey: window.SNAPIT_CONFIG?.STRIPE_PUBLISHABLE_KEY || 'pk_live_51RZK4aRE8RY21XQRpweG5ctPcGaRzShfajNWraIKOCLg4vYpqS88EqhpTGfj2joQbTjRK3spfP6uA6pGp2F4vRD700dBUbZ4aV',
             plans: window.SNAPIT_CONFIG?.STRIPE_PLANS || {
-                starter: {
-                    monthlyPriceId: 'price_1SEfCuI5FOHA4t9XfL4KO3T4',
-                    yearlyPriceId: 'price_1SEfCvI5FOHA4t9X3w600Axq',
-                    monthlyAmount: '$3.99',
-                    yearlyAmount: '$39.99',
-                    name: 'Starter'
+                core: {
+                    monthlyPriceId: 'price_1SJIkjRE8RY21XQR852sQslC',
+                    yearlyPriceId: 'price_1SJIklRE8RY21XQR9dUaWf7i',
+                    monthlyAmount: '$19',
+                    yearlyAmount: '$152',
+                    name: 'Core'
                 },
-                professional: {
-                    monthlyPriceId: 'price_1SEfCvI5FOHA4t9X1ev4U743',
-                    yearlyPriceId: 'price_1SEfCwI5FOHA4t9X33at7mgL',
-                    monthlyAmount: '$9.99',
-                    yearlyAmount: '$99.99',
-                    name: 'Professional'
+                growth: {
+                    monthlyPriceId: 'price_1SJIkoRE8RY21XQRZ8WiodpU',
+                    yearlyPriceId: 'price_1SJIkqRE8RY21XQRCwQ4M4g6',
+                    monthlyAmount: '$69',
+                    yearlyAmount: '$552',
+                    name: 'Growth'
                 },
                 business: {
-                    monthlyPriceId: 'price_1SEfCwI5FOHA4t9XJdqEDw68',
-                    yearlyPriceId: 'price_1SEfCxI5FOHA4t9Xd5VjmKq8',
-                    monthlyAmount: '$29.99',
-                    yearlyAmount: '$299.99',
+                    monthlyPriceId: 'price_1SJIksRE8RY21XQRsdtzN7cr',
+                    yearlyPriceId: 'price_1SJIkuRE8RY21XQRJxvyf4x5',
+                    monthlyAmount: '$199',
+                    yearlyAmount: '$1,592',
                     name: 'Business'
-                },
-                premium: {
-                    monthlyPriceId: 'price_1SEfCyI5FOHA4t9XtHetmEMm',
-                    yearlyPriceId: 'price_1SEfCyI5FOHA4t9X0eMnWLmO',
-                    monthlyAmount: '$49.99',
-                    yearlyAmount: '$499.99',
-                    name: 'Premium'
-                },
-                enterprise: {
-                    monthlyPriceId: 'price_1SEfCzI5FOHA4t9XilTGP5em',
-                    yearlyPriceId: 'price_1SEfD0I5FOHA4t9XGNh0RhHl',
-                    monthlyAmount: '$99.99',
-                    yearlyAmount: '$999.99',
-                    name: 'Enterprise'
                 }
             }
         };
@@ -2675,29 +3247,28 @@
                         </div>
                     </div>
 
-                    <script>
-                        // Billing period toggle
-                        document.querySelectorAll('.billing-btn').forEach(btn => {
-                            btn.addEventListener('click', function() {
-                                document.querySelectorAll('.billing-btn').forEach(b => b.classList.remove('active'));
-                                this.classList.add('active');
-                                const period = this.dataset.period;
-                                document.querySelectorAll('.price').forEach(priceEl => {
-                                    const monthly = priceEl.dataset.monthly;
-                                    const yearly = priceEl.dataset.yearly;
-                                    if (monthly && yearly) {
-                                        priceEl.innerHTML = (period === 'monthly' ? monthly : yearly) +
-                                            '<span class="period">/' + (period === 'monthly' ? 'month' : 'year') + '</span>';
-                                    }
-                                });
-                            });
-                        });
-                    </script>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
             setTimeout(() => modal.classList.add('show'), 100);
+
+            // Billing period toggle - add event listeners after modal is added to DOM
+            modal.querySelectorAll('.billing-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    modal.querySelectorAll('.billing-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const period = this.dataset.period;
+                    modal.querySelectorAll('.price').forEach(priceEl => {
+                        const monthly = priceEl.dataset.monthly;
+                        const yearly = priceEl.dataset.yearly;
+                        if (monthly && yearly) {
+                            priceEl.innerHTML = (period === 'monthly' ? monthly : yearly) +
+                                '<span class="period">/' + (period === 'monthly' ? 'month' : 'year') + '</span>';
+                        }
+                    });
+                });
+            });
         }
 
         // Upgrade to specific plan
@@ -2727,7 +3298,7 @@
                 showToast(`Redirecting to payment for ${plan.name} plan (${amount}/${billingPeriod})...`, 'info');
 
                 // Call backend to create checkout session
-                const response = await fetch('https://hvfj8o1yb0.execute-api.us-east-1.amazonaws.com/production/create-checkout-session', {
+                const response = await fetch('https://api.snapitqr.com/create-checkout-session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2758,6 +3329,339 @@
                 console.error('Upgrade error:', error);
                 showToast(`Upgrade failed: ${error.message}`, 'error');
             }
+        }
+
+        // Custom Confirm Modal
+        function showConfirmModal(message, title = 'Confirm Action') {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; max-width: 450px; width: 100%; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-800); margin: 0 0 16px 0;">${title}</h3>
+                        <p style="color: var(--gray-600); margin-bottom: 24px; line-height: 1.5;">${message}</p>
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button id="cancelBtn" class="btn btn-secondary" style="padding: 10px 20px;">Cancel</button>
+                            <button id="confirmBtn" class="btn btn-primary" style="padding: 10px 20px; background: var(--error); border-color: var(--error);">Confirm</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                modal.querySelector('#confirmBtn').onclick = () => {
+                    modal.remove();
+                    resolve(true);
+                };
+                modal.querySelector('#cancelBtn').onclick = () => {
+                    modal.remove();
+                    resolve(false);
+                };
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                        resolve(false);
+                    }
+                };
+            });
+        }
+
+        // Custom Prompt Modal
+        function showPromptModal(message, defaultValue = '', title = 'Enter Value') {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; max-width: 500px; width: 100%; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-800); margin: 0 0 16px 0;">${title}</h3>
+                        <p style="color: var(--gray-600); margin-bottom: 16px; line-height: 1.5;">${message}</p>
+                        <input type="text" id="promptInput" value="${defaultValue}"
+                               style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; margin-bottom: 24px; font-family: inherit;"
+                               placeholder="Enter value...">
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button id="cancelBtn" class="btn btn-secondary" style="padding: 10px 20px;">Cancel</button>
+                            <button id="submitBtn" class="btn btn-primary" style="padding: 10px 20px;">Submit</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                const input = modal.querySelector('#promptInput');
+                input.focus();
+                input.select();
+
+                const submit = () => {
+                    const value = input.value.trim();
+                    modal.remove();
+                    resolve(value || null);
+                };
+
+                modal.querySelector('#submitBtn').onclick = submit;
+                modal.querySelector('#cancelBtn').onclick = () => {
+                    modal.remove();
+                    resolve(null);
+                };
+                input.onkeypress = (e) => {
+                    if (e.key === 'Enter') submit();
+                    if (e.key === 'Escape') {
+                        modal.remove();
+                        resolve(null);
+                    }
+                };
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                        resolve(null);
+                    }
+                };
+            });
+        }
+
+        // QR Code Customization Editor
+        async function showQRCustomizationEditor(qrId, qrType) {
+            const qr = qrType === 'dynamic'
+                ? dynamicQRs.find(q => q.qrId === qrId)
+                : staticQRs.find(q => q.id === qrId);
+
+            if (!qr) {
+                showToast('QR code not found', 'error');
+                return;
+            }
+
+            const customization = qr.customization || {};
+            const fgColor = customization.foregroundColor || '#000000';
+            const bgColor = customization.backgroundColor || '#FFFFFF';
+            const borderWidth = customization.borderWidth || 0;
+            const borderColor = customization.borderColor || '#000000';
+            const borderStyle = customization.borderStyle || 'solid';
+            const textAbove = customization.textAbove || '';
+            const textBelow = customization.textBelow || '';
+            const size = customization.size || 300;
+
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; overflow-y: auto;';
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; max-width: 900px; width: 100%; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+                        <h3 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-800); margin: 0 0 24px 0;">🎨 Customize QR Code</h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                            <!-- Left Column: Controls -->
+                            <div>
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Foreground Color</label>
+                                    <input type="color" id="editFgColor" value="${fgColor}"
+                                           style="width: 100%; height: 50px; border: 2px solid var(--gray-300); border-radius: 8px; cursor: pointer;">
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Background Color</label>
+                                    <input type="color" id="editBgColor" value="${bgColor}"
+                                           style="width: 100%; height: 50px; border: 2px solid var(--gray-300); border-radius: 8px; cursor: pointer;">
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">QR Code Size</label>
+                                    <select id="editSize" style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; font-family: inherit;">
+                                        <option value="200" ${size === 200 ? 'selected' : ''}>Small (200x200)</option>
+                                        <option value="300" ${size === 300 ? 'selected' : ''}>Medium (300x300)</option>
+                                        <option value="400" ${size === 400 ? 'selected' : ''}>Large (400x400)</option>
+                                        <option value="500" ${size === 500 ? 'selected' : ''}>Extra Large (500x500)</option>
+                                    </select>
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Border Width (px)</label>
+                                    <input type="number" id="editBorderWidth" value="${borderWidth}" min="0" max="20"
+                                           style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; font-family: inherit;">
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Border Color</label>
+                                    <input type="color" id="editBorderColor" value="${borderColor}"
+                                           style="width: 100%; height: 50px; border: 2px solid var(--gray-300); border-radius: 8px; cursor: pointer;">
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Border Style</label>
+                                    <select id="editBorderStyle" style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; font-family: inherit;">
+                                        <option value="solid" ${borderStyle === 'solid' ? 'selected' : ''}>Solid</option>
+                                        <option value="dashed" ${borderStyle === 'dashed' ? 'selected' : ''}>Dashed</option>
+                                        <option value="dotted" ${borderStyle === 'dotted' ? 'selected' : ''}>Dotted</option>
+                                        <option value="double" ${borderStyle === 'double' ? 'selected' : ''}>Double</option>
+                                    </select>
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Text Above QR Code</label>
+                                    <input type="text" id="editTextAbove" value="${textAbove}" maxlength="50" placeholder="e.g., Scan to visit"
+                                           style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; font-family: inherit;">
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">Text Below QR Code</label>
+                                    <input type="text" id="editTextBelow" value="${textBelow}" maxlength="50" placeholder="e.g., www.example.com"
+                                           style="width: 100%; padding: 12px; border: 2px solid var(--gray-300); border-radius: 8px; font-size: 1rem; font-family: inherit;">
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Live Preview -->
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 12px; color: var(--gray-700);">Live Preview</label>
+                                <div id="customizationPreview" style="background: #f8fafc; border: 2px solid var(--gray-300); border-radius: 12px; padding: 30px; min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                                    <div style="color: var(--gray-500);">Adjust settings to preview</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--gray-200);">
+                            <button id="cancelCustomBtn" class="btn btn-secondary" style="padding: 12px 24px;">Cancel</button>
+                            <button id="previewCustomBtn" class="btn btn-secondary" style="padding: 12px 24px;">🔄 Preview</button>
+                            <button id="saveCustomBtn" class="btn btn-primary" style="padding: 12px 24px;">💾 Save Changes</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                // Preview function
+                const updatePreview = () => {
+                    const preview = modal.querySelector('#customizationPreview');
+                    const fgColor = modal.querySelector('#editFgColor').value;
+                    const bgColor = modal.querySelector('#editBgColor').value;
+                    const borderWidth = parseInt(modal.querySelector('#editBorderWidth').value);
+                    const borderColor = modal.querySelector('#editBorderColor').value;
+                    const borderStyle = modal.querySelector('#editBorderStyle').value;
+                    const textAbove = modal.querySelector('#editTextAbove').value;
+                    const textBelow = modal.querySelector('#editTextBelow').value;
+                    const size = parseInt(modal.querySelector('#editSize').value);
+
+                    try {
+                        preview.innerHTML = '';
+
+                        // Create wrapper
+                        const wrapper = document.createElement('div');
+                        wrapper.style.display = 'inline-block';
+                        wrapper.style.padding = borderWidth + 'px';
+                        wrapper.style.border = borderWidth > 0 ? `${borderWidth}px ${borderStyle} ${borderColor}` : 'none';
+                        wrapper.style.backgroundColor = bgColor;
+                        wrapper.style.textAlign = 'center';
+
+                        // Add text above
+                        if (textAbove) {
+                            const textAboveEl = document.createElement('div');
+                            textAboveEl.textContent = textAbove;
+                            textAboveEl.style.marginBottom = '10px';
+                            textAboveEl.style.fontWeight = '600';
+                            textAboveEl.style.color = fgColor;
+                            wrapper.appendChild(textAboveEl);
+                        }
+
+                        // Create QR code
+                        const canvas = document.createElement('canvas');
+                        wrapper.appendChild(canvas);
+
+                        // Add text below
+                        if (textBelow) {
+                            const textBelowEl = document.createElement('div');
+                            textBelowEl.textContent = textBelow;
+                            textBelowEl.style.marginTop = '10px';
+                            textBelowEl.style.fontWeight = '600';
+                            textBelowEl.style.color = fgColor;
+                            wrapper.appendChild(textBelowEl);
+                        }
+
+                        const qrious = new QRious({
+                            element: canvas,
+                            value: qr.content || qr.destinationUrl || 'https://example.com',
+                            size: Math.min(size, 300), // Limit preview size
+                            background: bgColor,
+                            foreground: fgColor,
+                            level: 'H'
+                        });
+
+                        preview.appendChild(wrapper);
+                    } catch (error) {
+                        console.error('Preview error:', error);
+                        preview.innerHTML = '<div style="color: var(--error);">Preview error</div>';
+                    }
+                };
+
+                // Add event listeners for live preview
+                modal.querySelector('#previewCustomBtn').onclick = updatePreview;
+                modal.querySelectorAll('#editFgColor, #editBgColor, #editSize, #editBorderWidth, #editBorderColor, #editBorderStyle, #editTextAbove, #editTextBelow').forEach(input => {
+                    input.addEventListener('change', updatePreview);
+                });
+
+                // Initial preview
+                updatePreview();
+
+                // Save button
+                modal.querySelector('#saveCustomBtn').onclick = async () => {
+                    const newCustomization = {
+                        foregroundColor: modal.querySelector('#editFgColor').value,
+                        backgroundColor: modal.querySelector('#editBgColor').value,
+                        size: parseInt(modal.querySelector('#editSize').value),
+                        borderWidth: parseInt(modal.querySelector('#editBorderWidth').value),
+                        borderColor: modal.querySelector('#editBorderColor').value,
+                        borderStyle: modal.querySelector('#editBorderStyle').value,
+                        textAbove: modal.querySelector('#editTextAbove').value,
+                        textBelow: modal.querySelector('#editTextBelow').value
+                    };
+
+                    try {
+                        if (qrType === 'dynamic') {
+                            // Update dynamic QR via API
+                            const authToken = localStorage.getItem('snapitqr_token');
+                            const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authToken}`
+                                },
+                                body: JSON.stringify({ customization: newCustomization })
+                            });
+
+                            if (response.ok) {
+                                showToast('QR code customization updated!', 'success');
+                                await refreshDashboard();
+                                modal.remove();
+                                resolve(true);
+                            } else {
+                                const error = await response.json();
+                                showToast(error.error || 'Failed to update customization', 'error');
+                            }
+                        } else {
+                            // Update static QR in localStorage
+                            const qrs = getStaticQRCodes();
+                            const index = qrs.findIndex(q => q.id === qrId);
+                            if (index !== -1) {
+                                qrs[index].customization = newCustomization;
+                                localStorage.setItem(QR_STORAGE_KEY, JSON.stringify(qrs));
+                                showToast('QR code customization updated!', 'success');
+                                await refreshDashboard();
+                                modal.remove();
+                                resolve(true);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Save customization error:', error);
+                        showToast('Failed to save customization', 'error');
+                    }
+                };
+
+                // Cancel button
+                modal.querySelector('#cancelCustomBtn').onclick = () => {
+                    modal.remove();
+                    resolve(false);
+                };
+
+                // Click outside to close
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                        resolve(false);
+                    }
+                };
+            });
         }
 
         // Toast notification system
@@ -2936,6 +3840,163 @@
 
         // Add global feedback button (floating button in corner)
         // Feedback button removed - use footer link instead
+
+        // Bulk Upload Functions
+        function showBulkUploadModal() {
+            const modal = document.createElement('div');
+            modal.id = 'bulkUploadModal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="margin-top: 0;">📤 Bulk Upload</h2>
+                    <p style="color: #666; margin-bottom: 20px;">Upload a CSV file with URLs to create multiple QR codes or short links at once.</p>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Upload Type:</label>
+                        <select id="bulkUploadType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                            <option value="qr">QR Codes</option>
+                            <option value="url">Short URLs</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">CSV File:</label>
+                        <input type="file" id="bulkCsvFile" accept=".csv" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                        <small style="color: #666; display: block; margin-top: 8px;">Format: url,title (one per line)</small>
+                    </div>
+
+                    <div id="bulkPreview" style="margin-bottom: 20px; display: none;">
+                        <h3 style="font-size: 16px; margin-bottom: 10px;">Preview:</h3>
+                        <div id="bulkPreviewContent" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: #f9f9f9;"></div>
+                    </div>
+
+                    <div id="bulkProgress" style="margin-bottom: 20px; display: none;">
+                        <div style="background: #f0f0f0; border-radius: 10px; overflow: hidden; height: 30px;">
+                            <div id="bulkProgressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;"></div>
+                        </div>
+                        <div id="bulkProgressText" style="margin-top: 8px; text-align: center; color: #666;"></div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="closeBulkUploadModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">Cancel</button>
+                        <button id="bulkUploadBtn" onclick="processBulkUpload()" style="padding: 10px 20px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">Upload</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Add file change listener for preview
+            document.getElementById('bulkCsvFile').addEventListener('change', previewBulkUpload);
+        }
+
+        function closeBulkUploadModal() {
+            const modal = document.getElementById('bulkUploadModal');
+            if (modal) modal.remove();
+        }
+
+        async function previewBulkUpload() {
+            const fileInput = document.getElementById('bulkCsvFile');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const text = await file.text();
+            const lines = text.split('\n').filter(line => line.trim());
+
+            const preview = document.getElementById('bulkPreview');
+            const previewContent = document.getElementById('bulkPreviewContent');
+
+            previewContent.innerHTML = lines.slice(0, 10).map((line, i) => {
+                const [url, title] = line.split(',').map(s => s.trim());
+                return `<div style="padding: 5px 0; border-bottom: 1px solid #eee;"><strong>${i + 1}.</strong> ${title || 'Untitled'} - ${url}</div>`;
+            }).join('');
+
+            if (lines.length > 10) {
+                previewContent.innerHTML += `<div style="padding: 10px 0; color: #666; font-style: italic;">...and ${lines.length - 10} more items</div>`;
+            }
+
+            preview.style.display = 'block';
+        }
+
+        async function processBulkUpload() {
+            const fileInput = document.getElementById('bulkCsvFile');
+            const uploadType = document.getElementById('bulkUploadType').value;
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showToast('Please select a CSV file', 'error');
+                return;
+            }
+
+            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            if (!authToken) {
+                showToast('Please log in first', 'error');
+                return;
+            }
+
+            try {
+                // Parse CSV
+                const text = await file.text();
+                const lines = text.split('\n').filter(line => line.trim());
+
+                if (lines.length === 0) {
+                    showToast('CSV file is empty', 'error');
+                    return;
+                }
+
+                if (lines.length > 100) {
+                    showToast('Maximum 100 items per batch. Please split your file.', 'error');
+                    return;
+                }
+
+                const items = lines.map(line => {
+                    const [url, title] = line.split(',').map(s => s.trim());
+                    return { url, title: title || url };
+                });
+
+                // Show progress
+                document.getElementById('bulkProgress').style.display = 'block';
+                document.getElementById('bulkUploadBtn').disabled = true;
+                document.getElementById('bulkProgressText').textContent = 'Uploading...';
+
+                // Determine API endpoint
+                const endpoint = uploadType === 'qr' ? '/qr-codes/bulk' : '/short-urls/bulk';
+                const apiUrl = `https://api.snapitqr.com${endpoint}`;
+
+                // Upload
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ items })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const progressBar = document.getElementById('bulkProgressBar');
+                    progressBar.style.width = '100%';
+                    progressBar.textContent = '100%';
+                    document.getElementById('bulkProgressText').textContent = `Successfully created ${result.count} ${uploadType === 'qr' ? 'QR codes' : 'short URLs'}!`;
+
+                    setTimeout(() => {
+                        closeBulkUploadModal();
+                        refreshDashboard();
+                        showToast(`Created ${result.count} items successfully!`, 'success');
+                    }, 1500);
+                } else {
+                    throw new Error(result.message || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Bulk upload error:', error);
+                showToast('Failed to upload: ' + error.message, 'error');
+                document.getElementById('bulkUploadBtn').disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

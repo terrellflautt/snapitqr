@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     }
 
     // Route to appropriate handler
-    if (path === '/auth/google' && method === 'POST') {
+    if ((path === '/auth/google' || path === '/register/google') && method === 'POST') {
       return await handleGoogleAuth(event, headers);
     } else if (path === '/auth/me' && method === 'GET') {
       return await getCurrentUser(event, headers);
@@ -71,9 +71,20 @@ exports.handler = async (event) => {
 
 async function handleGoogleAuth(event, headers) {
   const body = JSON.parse(event.body || '{}');
-  const { idToken } = body;
+
+  // Support multiple parameter names: idToken, googleToken, token, credential
+  let idToken = body.idToken || body.googleToken || body.token || body.credential;
+
+  // If not in body, check Authorization header (some frontends send it here)
+  if (!idToken) {
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      idToken = authHeader.substring(7);
+    }
+  }
 
   if (!idToken) {
+    console.error('No token found in request. Body:', body);
     return {
       statusCode: 400,
       headers,
@@ -133,7 +144,7 @@ async function handleGoogleAuth(event, headers) {
         apiCalls: 0
       },
       usageLimits: {
-        staticQRs: Infinity,
+        staticQRs: 999999,
         dynamicQRs: 3,
         shortURLs: 100,
         apiCalls: 0

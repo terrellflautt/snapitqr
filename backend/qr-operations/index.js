@@ -1,25 +1,26 @@
 const AWS = require('aws-sdk');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const rateLimiter = require('./rate-limiter');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 
 const TIER_LIMITS = {
   free: {
-    dynamicQRs: 3,
+    dynamicQRs: 10,
     staticQRs: Infinity
   },
-  starter: {
-    dynamicQRs: 50,
+  core: {
+    dynamicQRs: 1000,
     staticQRs: Infinity
   },
-  pro: {
-    dynamicQRs: 500,
+  growth: {
+    dynamicQRs: 5000,
     staticQRs: Infinity
   },
   business: {
-    dynamicQRs: 5000,
+    dynamicQRs: Infinity,
     staticQRs: Infinity
   }
 };
@@ -47,9 +48,9 @@ exports.handler = async (event) => {
     }
 
     // Route to appropriate handler
-    if (path === '/qr/generate' && method === 'POST') {
+    if ((path === '/qr/generate' || path === '/generate') && method === 'POST') {
       return await generateQRCode(event, userId, userTier, headers);
-    } else if (path === '/qr/list' && method === 'GET') {
+    } else if ((path === '/qr/list' || path === '/qr-codes') && method === 'GET') {
       return await listQRCodes(event, userId, headers);
     } else if (path.startsWith('/qr/') && method === 'GET') {
       return await getQRCode(event, headers);
@@ -95,8 +96,37 @@ async function generateQRCode(event, userId, userTier, headers) {
 
   const qrType = type || 'static';
 
-  // Check usage limits for dynamic QR codes
-  if (qrType === 'dynamic' && userId) {
+  // For anonymous users, check IP-based rate limits
+  if (!userId || userId === 'anonymous') {
+    const sourceIp = event.requestContext.identity.sourceIp;
+    const userAgent = event.headers?.['User-Agent'] || 'Unknown';
+    const country = event.headers?.['CloudFront-Viewer-Country'] || 'Unknown';
+
+    const rateCheck = await rateLimiter.checkRateLimit(sourceIp, 'qr', userAgent, country);
+
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({
+          error: rateCheck.error,
+          message: rateCheck.message,
+          limits: rateCheck.limits,
+          suggestion: rateCheck.suggestion,
+          retryAfter: 3600
+        })
+      };
+    }
+
+    // Add usage info to response headers
+    headers['X-Rate-Limit-Hourly-Limit'] = rateCheck.usage.hourly.limit;
+    headers['X-Rate-Limit-Hourly-Remaining'] = rateCheck.usage.hourly.remaining;
+    headers['X-Rate-Limit-Daily-Limit'] = rateCheck.usage.daily.limit;
+    headers['X-Rate-Limit-Daily-Remaining'] = rateCheck.usage.daily.remaining;
+  }
+
+  // For authenticated users with dynamic QR codes, check tier-based usage limits
+  if (qrType === 'dynamic' && userId && userId !== 'anonymous') {
     const usage = await checkUsageLimit(userId, 'dynamicQRs', userTier);
     if (!usage.allowed) {
       return {
@@ -141,13 +171,13 @@ async function generateQRCode(event, userId, userTier, headers) {
     Bucket: process.env.S3_BUCKET || 'snapitqr-assets',
     Key: s3Key,
     Body: qrBuffer,
-    ContentType: 'image/png',
-    ACL: 'public-read'
+    ContentType: 'image/png'
   }).promise();
 
   const qrUrl = `https://${process.env.S3_BUCKET || 'snapitqr-assets'}.s3.amazonaws.com/${s3Key}`;
 
   // Save to DynamoDB
+  const now = Date.now();
   const qrRecord = {
     qrId,
     userId: userId || 'anonymous',
@@ -157,8 +187,8 @@ async function generateQRCode(event, userId, userTier, headers) {
     name: name || `QR Code ${new Date().toISOString()}`,
     qrUrl,
     customization: customization || {},
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     scans: 0,
     status: 'active'
   };
@@ -180,6 +210,15 @@ async function generateQRCode(event, userId, userTier, headers) {
     userId: userId || 'anonymous',
     metadata: { type: qrType, tier: userTier }
   });
+
+  // Record action for rate limiting (async, don't wait)
+  if (!userId || userId === 'anonymous') {
+    const sourceIp = event.requestContext.identity.sourceIp;
+    rateLimiter.recordAction(sourceIp, 'qr', userId || 'anonymous', {
+      qrId,
+      type: qrType
+    }).catch(err => console.error('Failed to record rate limit action:', err));
+  }
 
   return {
     statusCode: 201,
@@ -322,8 +361,13 @@ async function updateQRCode(event, userId, headers) {
     expressionAttributeValues[':status'] = body.status;
   }
 
+  if (body.customization) {
+    updateExpression.push('customization = :customization');
+    expressionAttributeValues[':customization'] = body.customization;
+  }
+
   updateExpression.push('updatedAt = :updatedAt');
-  expressionAttributeValues[':updatedAt'] = new Date().toISOString();
+  expressionAttributeValues[':updatedAt'] = Date.now();
 
   await dynamodb.update({
     TableName: 'snapitqr-qrcodes',

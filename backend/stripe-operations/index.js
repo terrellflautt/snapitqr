@@ -9,38 +9,50 @@ let stripe;
 let STRIPE_WEBHOOK_SECRET;
 
 const PRICE_IDS = {
-  starter_monthly: 'price_1SH7P0RE8RY21XQR5ENSFeIX',
-  starter_yearly: 'price_1SH7PYRE8RY21XQRZ9b45Wkg',
-  pro_monthly: 'price_1SH7PZRE8RY21XQRUGGQoU1Q',
-  pro_yearly: 'price_1SH7PZRE8RY21XQRhK4D3dLH',
-  business_monthly: 'price_1SH7PaRE8RY21XQRNpRVVfeO',
-  business_yearly: 'price_1SH7PaRE8RY21XQRPsPo5IuP'
+  core_monthly: 'price_1SJIkjRE8RY21XQR852sQslC',
+  core_yearly: 'price_1SJIklRE8RY21XQR9dUaWf7i',
+  growth_monthly: 'price_1SJIkoRE8RY21XQRZ8WiodpU',
+  growth_yearly: 'price_1SJIkqRE8RY21XQRCwQ4M4g6',
+  business_monthly: 'price_1SJIksRE8RY21XQRsdtzN7cr',
+  business_yearly: 'price_1SJIkuRE8RY21XQRJxvyf4x5'
 };
 
 const TIER_LIMITS = {
-  starter: {
+  free: {
     staticQRs: Infinity,
-    dynamicQRs: 50,
+    dynamicQRs: 10,
+    shortURLs: 10,
+    customDomains: 0,
+    apiCalls: 0,
+    teamMembers: 0,
+    dataRetention: 30 // days
+  },
+  core: {
+    staticQRs: Infinity,
+    dynamicQRs: 1000,
     shortURLs: 1000,
     customDomains: 1,
-    apiCalls: 0,
-    teamMembers: 0
-  },
-  pro: {
-    staticQRs: Infinity,
-    dynamicQRs: 500,
-    shortURLs: 10000,
-    customDomains: Infinity,
     apiCalls: 10000,
-    teamMembers: 5
+    teamMembers: 1,
+    dataRetention: 365 // days (1 year)
+  },
+  growth: {
+    staticQRs: Infinity,
+    dynamicQRs: 5000,
+    shortURLs: 5000,
+    customDomains: 5,
+    apiCalls: 100000,
+    teamMembers: 5,
+    dataRetention: -1 // unlimited
   },
   business: {
     staticQRs: Infinity,
-    dynamicQRs: 5000,
-    shortURLs: 100000,
+    dynamicQRs: Infinity,
+    shortURLs: Infinity,
     customDomains: Infinity,
     apiCalls: Infinity,
-    teamMembers: Infinity
+    teamMembers: Infinity,
+    dataRetention: -1 // unlimited
   }
 };
 
@@ -75,7 +87,7 @@ exports.handler = async (event) => {
     }
 
     // Route to appropriate handler
-    if (path === '/stripe/create-checkout' && method === 'POST') {
+    if ((path === '/stripe/create-checkout' || path === '/create-checkout-session') && method === 'POST') {
       return await createCheckoutSession(event, headers);
     } else if (path === '/stripe/webhook' && method === 'POST') {
       return await handleWebhook(event, headers);
@@ -490,12 +502,7 @@ async function handleSubscriptionDeleted(subscription) {
     ExpressionAttributeValues: {
       ':tier': 'free',
       ':status': 'canceled',
-      ':limits': {
-        staticQRs: Infinity,
-        dynamicQRs: 3,
-        shortURLs: 100,
-        apiCalls: 0
-      },
+      ':limits': TIER_LIMITS['free'],
       ':updatedAt': new Date().toISOString()
     }
   }).promise();
@@ -581,11 +588,11 @@ async function handlePaymentFailed(invoice) {
 }
 
 function getTierFromPriceId(priceId) {
-  if (priceId.includes('1SH7P0') || priceId.includes('1SH7PY')) {
-    return 'starter';
-  } else if (priceId.includes('1SH7PZ')) {
-    return 'pro';
-  } else if (priceId.includes('1SH7Pa')) {
+  if (priceId.includes('1SJIkj') || priceId.includes('1SJIkl')) {
+    return 'core';
+  } else if (priceId.includes('1SJIko') || priceId.includes('1SJIkq')) {
+    return 'growth';
+  } else if (priceId.includes('1SJIks') || priceId.includes('1SJIku')) {
     return 'business';
   }
   return 'free';
