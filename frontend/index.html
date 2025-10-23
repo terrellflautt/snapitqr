@@ -23,7 +23,10 @@
     
     <!-- Relaxed CSP to prevent unnecessary blocking -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; style-src 'self' 'unsafe-inline' https: data:; connect-src 'self' https: wss: data:; font-src 'self' https: data:; img-src 'self' https: data: blob:; frame-src 'self' https:; media-src 'self' https: data: blob:; object-src 'none'; base-uri 'self';"
-    
+
+    <!-- Cross-Origin-Opener-Policy for Google OAuth compatibility -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+
     <!-- Preconnects -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1067,7 +1070,7 @@
                 <a href="https://snapitqr.com" class="logo">SnapIT QR</a>
                 <nav class="nav-menu">
                     <a href="#features" class="nav-link">Features</a>
-                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <a href="javascript:void(0)" class="nav-link" onclick="showUpgradeModal()">Pricing</a>
                     <a href="https://snapiturl.com" class="nav-link">URL Shortener</a>
                     
                     <!-- Auth Section -->
@@ -1185,14 +1188,20 @@
                 <button class="btn btn-primary" onclick="showUpgradeModal()">⭐ Upgrade Plan</button>
             </div>
 
-            <!-- Tabs for QR Codes and Short URLs -->
+            <!-- Tabs for QR Codes, Short URLs, Forms, and Polls -->
             <div class="dashboard-tabs" style="margin-top: var(--space-6);">
-                <div class="tab-buttons" style="display: flex; gap: var(--space-2); border-bottom: 2px solid var(--gray-200); margin-bottom: var(--space-4);">
+                <div class="tab-buttons" style="display: flex; gap: var(--space-2); border-bottom: 2px solid var(--gray-200); margin-bottom: var(--space-4); flex-wrap: wrap;">
                     <button class="tab-btn active" onclick="switchDashboardTab('qr')" id="qrTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid var(--primary); font-weight: 600; color: var(--primary); cursor: pointer; font-size: 1rem;">
-                        📋 My QR Codes
+                        📋 QR Codes
                     </button>
                     <button class="tab-btn" onclick="switchDashboardTab('urls')" id="urlsTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid transparent; font-weight: 500; color: var(--gray-600); cursor: pointer; font-size: 1rem;">
-                        🔗 My Short Links
+                        🔗 Short Links
+                    </button>
+                    <button class="tab-btn" onclick="switchDashboardTab('forms')" id="formsTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid transparent; font-weight: 500; color: var(--gray-600); cursor: pointer; font-size: 1rem;">
+                        📝 Forms
+                    </button>
+                    <button class="tab-btn" onclick="switchDashboardTab('polls')" id="pollsTab" style="padding: var(--space-3) var(--space-6); background: none; border: none; border-bottom: 3px solid transparent; font-weight: 500; color: var(--gray-600); cursor: pointer; font-size: 1rem;">
+                        📊 Polls
                     </button>
                 </div>
 
@@ -1208,9 +1217,36 @@
                 <!-- Short URLs Tab Content -->
                 <div id="shortUrlsList" class="tab-content" style="display: none;">
                     <div id="shortUrlsContainer">
-                    <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
-                        No short links yet. Create your first short link above! 👆
-                    </p>
+                        <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
+                            No short links yet. Create your first short link above! 👆
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Forms Tab Content -->
+                <div id="formsList" class="tab-content" style="display: none;">
+                    <div id="formsContainer">
+                        <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
+                            📝 Forms coming soon! One subscription unlocks forms across all SnapIT products.
+                            <br><br>
+                            <button class="btn btn-primary" onclick="window.open('https://snapitforms.com', '_blank')" style="margin-top: var(--space-4);">
+                                Visit SnapIT Forms →
+                            </button>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Polls Tab Content -->
+                <div id="pollsList" class="tab-content" style="display: none;">
+                    <div id="pollsContainer">
+                        <p style="color: var(--gray-500); text-align: center; padding: var(--space-8);">
+                            📊 Polls coming soon! One subscription unlocks polls across all SnapIT products.
+                            <br><br>
+                            <button class="btn btn-primary" onclick="window.open('https://polls.snapitsoftware.com', '_blank')" style="margin-top: var(--space-4);">
+                                Visit SnapIT Polls →
+                            </button>
+                        </p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -1238,7 +1274,7 @@
                 
                 <div class="form-group">
                     <label for="qrContent" class="form-label">Content</label>
-                    <textarea id="qrContent" class="form-textarea" placeholder="Enter URL, text, or any content..." rows="3" oninput="debouncedGenerateQR()"></textarea>
+                    <textarea id="qrContent" class="form-textarea" placeholder="Enter URL, text, or any content..." rows="3" oninput="debouncedGenerateQR()" autocomplete="off"></textarea>
                 </div>
                 
                 <div class="form-group">
@@ -1246,18 +1282,18 @@
                     <div class="color-controls">
                         <div class="color-group">
                             <label for="fgColor" class="form-label" style="margin-bottom: 0;">Foreground</label>
-                            <input type="color" id="fgColor" value="#000000" class="color-input" onchange="generateQRCode()">
+                            <input type="color" id="fgColor" value="#000000" class="color-input" onchange="generateQRCode()" autocomplete="off">
                         </div>
                         <div class="color-group">
                             <label for="bgColor" class="form-label" style="margin-bottom: 0;">Background</label>
-                            <input type="color" id="bgColor" value="#FFFFFF" class="color-input" onchange="generateQRCode()">
+                            <input type="color" id="bgColor" value="#FFFFFF" class="color-input" onchange="generateQRCode()" autocomplete="off">
                         </div>
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <label for="qrSize" class="form-label">Size</label>
-                    <select id="qrSize" class="form-select" onchange="generateQRCode()">
+                    <select id="qrSize" class="form-select" onchange="generateQRCode()" autocomplete="off">
                         <option value="200">Small (200×200)</option>
                         <option value="300" selected>Medium (300×300)</option>
                         <option value="400">Large (400×400)</option>
@@ -1271,16 +1307,16 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <div>
                             <label for="borderWidth" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Thickness (px)</label>
-                            <input type="number" id="borderWidth" class="form-select" value="0" min="0" max="20" onchange="generateQRCode()">
+                            <input type="number" id="borderWidth" class="form-select" value="0" min="0" max="20" onchange="generateQRCode()" autocomplete="off">
                         </div>
                         <div>
                             <label for="borderColor" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Color</label>
-                            <input type="color" id="borderColor" value="#000000" class="color-input" onchange="generateQRCode()">
+                            <input type="color" id="borderColor" value="#000000" class="color-input" onchange="generateQRCode()" autocomplete="off">
                         </div>
                     </div>
                     <div>
                         <label for="borderStyle" class="form-label" style="margin-bottom: 5px; font-size: 0.9rem;">Style</label>
-                        <select id="borderStyle" class="form-select" onchange="generateQRCode()">
+                        <select id="borderStyle" class="form-select" onchange="generateQRCode()" autocomplete="off">
                             <option value="solid">Solid</option>
                             <option value="dashed">Dashed</option>
                             <option value="dotted">Dotted</option>
@@ -1292,12 +1328,12 @@
                 <!-- Text Above/Below QR Code -->
                 <div class="form-group">
                     <label for="qrTextAbove" class="form-label">Text Above QR Code (optional)</label>
-                    <input type="text" id="qrTextAbove" class="form-select" placeholder="e.g., Scan to visit our website" maxlength="50" oninput="generateQRCode()">
+                    <input type="text" id="qrTextAbove" class="form-select" placeholder="e.g., Scan to visit our website" maxlength="50" oninput="generateQRCode()" autocomplete="off">
                 </div>
 
                 <div class="form-group">
                     <label for="qrTextBelow" class="form-label">Text Below QR Code (optional)</label>
-                    <input type="text" id="qrTextBelow" class="form-select" placeholder="e.g., www.example.com" maxlength="50" oninput="generateQRCode()">
+                    <input type="text" id="qrTextBelow" class="form-select" placeholder="e.g., www.example.com" maxlength="50" oninput="generateQRCode()" autocomplete="off">
                 </div>
 
                 <div id="qrPreview" class="qr-preview">
@@ -1324,18 +1360,18 @@
                 
                 <div class="form-group">
                     <label for="urlToShorten" class="form-label">Long URL</label>
-                    <input type="url" id="urlToShorten" class="form-input" placeholder="https://example.com/very-long-url">
+                    <input type="url" id="urlToShorten" class="form-input" placeholder="https://example.com/very-long-url" autocomplete="url">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="customAlias" class="form-label">Custom Alias (Optional)</label>
-                    <input type="text" id="customAlias" class="form-input" placeholder="my-custom-link">
+                    <input type="text" id="customAlias" class="form-input" placeholder="my-custom-link" autocomplete="off">
                     <small style="color: var(--gray-500); font-size: 0.875rem;">Leave empty for auto-generated code (letters, numbers, hyphens only)</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="domainSelect" class="form-label">Domain</label>
-                    <select id="domainSelect" class="form-input" style="background-color: white;">
+                    <select id="domainSelect" class="form-input" style="background-color: white;" autocomplete="off">
                         <option value="snapitqr.com">snapitqr.com</option>
                         <option value="snapiturl.com">snapiturl.com</option>
                     </select>
@@ -1344,7 +1380,7 @@
 
                 <div class="form-group">
                     <label for="expirationDate" class="form-label">Expiration Date (Optional)</label>
-                    <input type="datetime-local" id="expirationDate" class="form-input" style="background-color: white;">
+                    <input type="datetime-local" id="expirationDate" class="form-input" style="background-color: white;" autocomplete="off">
                     <small style="color: var(--gray-500); font-size: 0.875rem;">Leave empty for no expiration. After this date, the short link will no longer work.</small>
                 </div>
 
@@ -1404,87 +1440,6 @@
             </div>
         </section>
     </div>
-
-    <!-- Footer -->
-    <footer style="background: var(--navy); border-radius: var(--radius-2xl); box-shadow: var(--shadow-xl); padding: var(--space-8); margin: var(--space-20) auto 0; max-width: 1400px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-8); margin-bottom: var(--space-8);">
-            <div>
-                <h3 style="color: white; margin-bottom: var(--space-4); font-size: 1.25rem; font-weight: 700;">SnapIT QR</h3>
-                <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: var(--space-4); line-height: 1.6;">
-                    Professional QR code generation with analytics, custom branding, and integrated URL shortening.
-                </p>
-                <div style="display: flex; gap: var(--space-2);">
-                    <a href="https://snapiturl.com" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                        🔗 URL Shortener
-                    </a>
-                    <a href="https://snapitsaas.com" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                        💼 Enterprise
-                    </a>
-                </div>
-            </div>
-
-            <div>
-                <h4 style="color: white; margin-bottom: var(--space-4); font-weight: 600;">Products</h4>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="https://snapitqr.com" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">QR Code Generator</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="https://snapiturl.com" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">URL Shortener</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="https://snapitforms.com" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Form Builder</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="https://snapitanalytics.com" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Analytics Platform</a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h4 style="color: white; margin-bottom: var(--space-4); font-weight: 600;">Resources</h4>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/api-docs" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">API Documentation</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/help" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Help Center</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/tutorials" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Tutorials</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/blog" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Blog</a>
-                    </li>
-                </ul>
-            </div>
-            
-            <div>
-                <h4 style="color: white; margin-bottom: var(--space-4); font-weight: 600;">Support</h4>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/contact" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Contact Us</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/privacy" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Privacy Policy</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/terms" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Terms of Service</a>
-                    </li>
-                    <li style="margin-bottom: var(--space-2);">
-                        <a href="/status" style="color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ec4899'" onmouseout="this.style.color='rgba(255, 255, 255, 0.8)'">Service Status</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div style="border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: var(--space-6); text-align: center;">
-            <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; margin: 0;">
-                © 2025 SnapIT Software. All rights reserved. |
-                <span style="color: #ec4899; font-weight: 600;">Shared subscriptions across all SnapIT products</span>
-            </p>
-        </div>
-    </footer>
 
     <!-- Contact Form Modal -->
     <div id="contactModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 10000; opacity: 0; transition: opacity 0.3s ease;">
@@ -1564,7 +1519,201 @@
 
     <!-- JavaScript -->
     <script>
+        // ========================================
+        // SnapIT Unified API Client
+        // Enables cross-platform feature access
+        // ========================================
+        const SnapITAPI = {
+            // API Base URLs
+            endpoints: {
+                qr: 'https://api.snapitqr.com',
+                url: 'https://api.snapitqr.com',
+                forms: 'https://api.snapitforms.com',
+                polls: 'https://api.polls.snapitsoftware.com'
+            },
+
+            // Get unified auth token (migrates from old tokens automatically)
+            getToken() {
+                // Try unified token first
+                let token = localStorage.getItem('snapit_token');
+
+                // Migrate from old tokens if needed
+                if (!token) {
+                    token = localStorage.getItem('snapitqr_token') ||
+                            localStorage.getItem('snapiturl_token') ||
+                            localStorage.getItem('accessKey');
+
+                    if (token) {
+                        localStorage.setItem('snapit_token', token);
+                    }
+                }
+
+                return token;
+            },
+
+            // Set unified auth token
+            setToken(token) {
+                localStorage.setItem('snapit_token', token);
+                // Keep backward compatibility
+                localStorage.setItem('accessKey', token);
+            },
+
+            // Generic fetch wrapper
+            async fetch(service, endpoint, options = {}) {
+                const baseUrl = this.endpoints[service];
+                const token = this.getToken();
+
+                const config = {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` }),
+                        ...options.headers
+                    }
+                };
+
+                const response = await fetch(`${baseUrl}${endpoint}`, config);
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ message: response.statusText }));
+
+                    // Handle upgrade required errors
+                    if (error.upgradeRequired) {
+                        showToast(error.error || 'You\'ve reached your limit. Upgrade to get more!', 'warning');
+                        setTimeout(() => {
+                            if (typeof showUpgradeModal === 'function') {
+                                showUpgradeModal();
+                            } else {
+                                window.location.href = error.upgradeUrl || 'https://snapitqr.com/#pricing';
+                            }
+                        }, 1500);
+
+                        const upgradeError = new Error(error.error || error.message || 'Upgrade required');
+                        upgradeError.upgradeRequired = true;
+                        throw upgradeError;
+                    }
+
+                    throw new Error(error.error || error.message || response.statusText);
+                }
+
+                return response.json();
+            },
+
+            // QR Code Methods
+            qr: {
+                generate(data) {
+                    return SnapITAPI.fetch('qr', '/qr-codes', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                },
+                list() {
+                    return SnapITAPI.fetch('qr', '/qr-codes');
+                },
+                get(id) {
+                    return SnapITAPI.fetch('qr', `/qr-codes/${id}`);
+                },
+                update(id, data) {
+                    return SnapITAPI.fetch('qr', `/qr-codes/${id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(data)
+                    });
+                },
+                delete(id) {
+                    return SnapITAPI.fetch('qr', `/qr-codes/${id}`, {
+                        method: 'DELETE'
+                    });
+                }
+            },
+
+            // URL Shortener Methods
+            url: {
+                shorten(data) {
+                    return SnapITAPI.fetch('url', '/url/shorten', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                },
+                list() {
+                    return SnapITAPI.fetch('url', '/short-urls');
+                },
+                get(code) {
+                    return SnapITAPI.fetch('url', `/short-urls/${code}`);
+                },
+                delete(code) {
+                    return SnapITAPI.fetch('url', `/short-urls/${code}`, {
+                        method: 'DELETE'
+                    });
+                }
+            },
+
+            // Forms Methods (NEW - cross-platform)
+            forms: {
+                create(data) {
+                    return SnapITAPI.fetch('forms', '/forms', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                },
+                list() {
+                    return SnapITAPI.fetch('forms', '/forms');
+                },
+                get(id) {
+                    return SnapITAPI.fetch('forms', `/forms/${id}`);
+                },
+                delete(id) {
+                    return SnapITAPI.fetch('forms', `/forms/${id}`, {
+                        method: 'DELETE'
+                    });
+                }
+            },
+
+            // Polls Methods (NEW - cross-platform)
+            polls: {
+                create(data) {
+                    return SnapITAPI.fetch('polls', '/polls', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                },
+                list() {
+                    return SnapITAPI.fetch('polls', '/polls');
+                },
+                get(id) {
+                    return SnapITAPI.fetch('polls', `/polls/${id}`);
+                },
+                delete(id) {
+                    return SnapITAPI.fetch('polls', `/polls/${id}`, {
+                        method: 'DELETE'
+                    });
+                },
+                vote(id, optionId) {
+                    return SnapITAPI.fetch('polls', `/polls/${id}/vote`, {
+                        method: 'POST',
+                        body: JSON.stringify({ optionId })
+                    });
+                }
+            },
+
+            // Dashboard Methods
+            dashboard: {
+                getData() {
+                    return SnapITAPI.fetch('qr', '/dashboard-data');
+                },
+                createCheckout(priceId) {
+                    return SnapITAPI.fetch('qr', '/create-checkout-session', {
+                        method: 'POST',
+                        body: JSON.stringify({ priceId })
+                    });
+                }
+            }
+        };
+
+        console.log('✅ SnapIT Unified API Client loaded');
+
+        // ========================================
         // Global variables
+        // ========================================
         let currentUser = null;
         let currentQR = null;
         let dynamicQRs = [];
@@ -1915,7 +2064,7 @@
             const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
 
             try {
-                const response = await fetch('https://api.snapitqr.com/generate', {
+                const response = await fetch('https://api.snapitqr.com/qr-codes', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1927,7 +2076,7 @@
                     body: JSON.stringify({
                         content,
                         type: 'dynamic',
-                        title: `QR Code - ${new Date().toLocaleDateString()}`,
+                        name: `QR Code - ${new Date().toLocaleDateString()}`,
                         options,
                         userId: currentUser?.id || currentUser?.email
                     })
@@ -1937,11 +2086,11 @@
                     if (response.status === 429 || response.status === 403) {
                         const errorData = await response.json();
                         if (errorData.upgradeRequired) {
-                            showToast('You\'ve reached your limit! Redirecting to upgrade...', 'warning');
-                            setTimeout(() => showUpgradeModal(), 1000);
+                            showToast('You\'ve reached your limit for dynamic QR codes. Delete one to create a new one, or upgrade for more.', 'warning');
+                            setTimeout(() => showUpgradeModal(), 1500);
                             return null;
                         }
-                        showToast(errorData.error || 'Limit reached. Please upgrade.', 'warning');
+                        showToast(errorData.error || 'Limit reached. You can delete an existing QR code or upgrade your plan.', 'warning');
                         return null;
                     } else if (response.status === 413) {
                         showToast('QR content too large. Please shorten your content.', 'error');
@@ -2156,7 +2305,7 @@
             // If user is signed in, save to cloud API
             if (authToken) {
                 try {
-                    const response = await fetch('https://api.snapitqr.com/generate', {
+                    const response = await fetch('https://api.snapitqr.com/qr-codes', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -2257,16 +2406,11 @@
                 return;
             }
 
-            // Temporary warning for custom aliases
-            if (customAlias) {
-                showToast('Custom aliases not yet supported - generating random alias', 'warning');
-            }
-
             // Check usage limits for authenticated users
             if (currentUser && window.userStats) {
                 if (window.userStats.tier === 'free' && window.userStats.urlUsed >= window.userStats.urlLimit) {
-                    showToast(`You've reached your limit of ${window.userStats.urlLimit} short URLs! Upgrade for more.`, 'warning');
-                    setTimeout(() => showUpgradeModal(), 1000);
+                    showToast(`You've reached your limit of ${window.userStats.urlLimit} short URLs. Delete one to create a new one, or upgrade your plan.`, 'warning');
+                    setTimeout(() => showUpgradeModal(), 1500);
                     return;
                 }
             }
@@ -2472,30 +2616,29 @@
 
         // Switch between dashboard tabs
         function switchDashboardTab(tab) {
-            const qrTab = document.getElementById('qrTab');
-            const urlsTab = document.getElementById('urlsTab');
-            const qrList = document.getElementById('qrCodesList');
-            const urlsList = document.getElementById('shortUrlsList');
+            const tabs = [
+                { id: 'qr', tabId: 'qrTab', contentId: 'qrCodesList' },
+                { id: 'urls', tabId: 'urlsTab', contentId: 'shortUrlsList' },
+                { id: 'forms', tabId: 'formsTab', contentId: 'formsList' },
+                { id: 'polls', tabId: 'pollsTab', contentId: 'pollsList' }
+            ];
 
-            if (tab === 'qr') {
-                qrTab.style.borderBottom = '3px solid var(--primary)';
-                qrTab.style.color = 'var(--primary)';
-                qrTab.style.fontWeight = '600';
-                urlsTab.style.borderBottom = '3px solid transparent';
-                urlsTab.style.color = 'var(--gray-600)';
-                urlsTab.style.fontWeight = '500';
-                qrList.style.display = 'block';
-                urlsList.style.display = 'none';
-            } else {
-                urlsTab.style.borderBottom = '3px solid var(--primary)';
-                urlsTab.style.color = 'var(--primary)';
-                urlsTab.style.fontWeight = '600';
-                qrTab.style.borderBottom = '3px solid transparent';
-                qrTab.style.color = 'var(--gray-600)';
-                qrTab.style.fontWeight = '500';
-                qrList.style.display = 'none';
-                urlsList.style.display = 'block';
-            }
+            tabs.forEach(t => {
+                const tabBtn = document.getElementById(t.tabId);
+                const tabContent = document.getElementById(t.contentId);
+
+                if (t.id === tab) {
+                    tabBtn.style.borderBottom = '3px solid var(--primary)';
+                    tabBtn.style.color = 'var(--primary)';
+                    tabBtn.style.fontWeight = '600';
+                    tabContent.style.display = 'block';
+                } else {
+                    tabBtn.style.borderBottom = '3px solid transparent';
+                    tabBtn.style.color = 'var(--gray-600)';
+                    tabBtn.style.fontWeight = '500';
+                    tabContent.style.display = 'none';
+                }
+            });
         }
 
         async function refreshDashboard() {
@@ -2530,14 +2673,14 @@
                             window.userStats.tier.charAt(0).toUpperCase() + window.userStats.tier.slice(1);
                     }
 
-                    // Get QR codes
-                    const qrResponse = await fetch('https://api.snapitqr.com/qr-codes', {
-                        headers: { 'Authorization': `Bearer ${authToken}` }
-                    });
-
-                    if (qrResponse.ok) {
-                        const qrData = await qrResponse.json();
+                    // Get QR codes using SnapITAPI
+                    try {
+                        const qrData = await SnapITAPI.qr.list();
                         dynamicQRs = qrData.qrCodes || qrData.data?.qrCodes || [];
+                        console.log('Loaded QR codes:', dynamicQRs.length);
+                    } catch (error) {
+                        console.error('Failed to load QR codes:', error);
+                        dynamicQRs = [];
                     }
 
                     // Get short URLs from snapiturl API
@@ -2639,31 +2782,24 @@
                                 <span style="font-weight: 600; color: var(--gray-800); font-size: 1rem;">
                                     ${qr.name || 'QR Code'}
                                 </span>
-                                <span class="badge ${qr.type === 'dynamic' ? 'badge-success' : 'badge-secondary'}"
+                                <span class="badge ${(qr.type === 'dynamic' || qr.isDynamic) ? 'badge-success' : 'badge-secondary'}"
                                       style="font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">
-                                    ${qr.type === 'dynamic' ? '🔄 Dynamic' : '📄 Static'}
+                                    ${(qr.type === 'dynamic' || qr.isDynamic) ? '🔄 Dynamic' : '📄 Static'}
                                 </span>
                             </div>
                             <p style="color: var(--gray-600); font-size: 0.875rem; margin-bottom: var(--space-2); word-break: break-all;">
                                 ${qr.destinationUrl || qr.content || 'No content'}
                             </p>
                             <div style="display: flex; gap: var(--space-4); font-size: 0.875rem; color: var(--gray-500);">
-                                ${qr.type === 'dynamic' ? `<span>📊 ${qr.scans || 0} scans</span>` : ''}
+                                ${(qr.type === 'dynamic' || qr.isDynamic) ? `<span>📊 ${qr.scans || 0} scans</span>` : ''}
                                 <span>📅 ${qr.createdAt ? new Date(qr.createdAt).toLocaleDateString() : 'Today'}</span>
                             </div>
                         </div>
                         <div style="display: flex; gap: var(--space-2); flex-shrink: 0; flex-wrap: wrap;">
-                            ${qr.type === 'dynamic' ? `
-                                <button class="btn btn-secondary" onclick="editQRCode('${qr.qrId}')"
-                                        style="padding: 8px 12px; font-size: 0.875rem;">
-                                    ✏️ Edit Destination
-                                </button>
-                            ` : `
-                                <button class="btn btn-secondary" onclick="upgradeToDynamic('${qr.id}', '${escapeHtml(qr.content || '')}')"
-                                        style="padding: 8px 12px; font-size: 0.875rem;">
-                                    🔄 Make Editable
-                                </button>
-                            `}
+                            <button class="btn btn-secondary" onclick="editQRCode('${qr.qrId || qr.id}')"
+                                    style="padding: 8px 12px; font-size: 0.875rem;">
+                                ${(qr.type === 'dynamic' || qr.isDynamic) ? '✏️ Edit Destination' : '✏️ Make Dynamic'}
+                            </button>
                             <button class="btn btn-primary" onclick="showQRCustomizationEditor('${qr.qrId || qr.id}', '${qr.type}')"
                                     style="padding: 8px 12px; font-size: 0.875rem; background: linear-gradient(135deg, var(--primary) 0%, #ec4899 100%);">
                                 🎨 Customize
@@ -2872,38 +3008,59 @@
             }
         }
 
-        // Edit dynamic QR code
+        // Edit QR code (supports converting static to dynamic)
         async function editQRCode(qrId) {
-            const qr = dynamicQRs.find(q => q.qrId === qrId);
-            if (!qr) {
-                showToast('QR code not found', 'error');
-                return;
-            }
-
-            const newUrl = await showPromptModal('Enter the new destination URL where this QR code should redirect:', qr.content || qr.destinationUrl, 'Edit QR Code Destination');
-            if (!newUrl || newUrl === (qr.content || qr.destinationUrl)) return;
-
             try {
-                const authToken = localStorage.getItem('authToken');
-                const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({ content: newUrl })
-                });
+                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
 
-                if (response.ok) {
-                    showToast('QR code destination updated successfully!', 'success');
-                    await refreshDashboard();
-                } else {
-                    const error = await response.json();
-                    showToast(error.message || 'Failed to update QR code', 'error');
+                if (!authToken) {
+                    showToast('Please sign in to edit QR codes', 'error');
+                    return;
                 }
+
+                // Find QR code in local array (check both qrId and id properties)
+                let qr = dynamicQRs.find(q => q.qrId === qrId || q.id === qrId);
+
+                // Also check staticQRs array for locally stored QR codes
+                if (!qr && staticQRs) {
+                    qr = staticQRs.find(q => q.id === qrId);
+                }
+
+                // If not found locally, fetch from API
+                if (!qr) {
+                    console.log('QR not in local array, fetching from API...');
+                    try {
+                        const qrData = await SnapITAPI.qr.get(qrId);
+                        qr = qrData.qrCode || qrData;
+                    } catch (err) {
+                        console.error('Failed to fetch QR code:', err);
+                        showToast('QR code not found. Please refresh the page.', 'error');
+                        return;
+                    }
+                }
+
+                const currentUrl = qr.content || qr.destinationUrl || '';
+                const isDynamic = qr.isDynamic || qr.type === 'dynamic';
+
+                const promptMessage = isDynamic
+                    ? 'Enter the new destination URL where this QR code should redirect:'
+                    : 'Enter destination URL (this will convert your static QR to a dynamic QR):';
+
+                const newUrl = await showPromptModal(promptMessage, currentUrl, 'Edit QR Code Destination');
+                if (!newUrl || newUrl === currentUrl) return;
+
+                // Use SnapITAPI for consistent error handling
+                await SnapITAPI.qr.update(qrId, { content: newUrl });
+
+                showToast(isDynamic ? '✅ QR code destination updated!' : '✅ QR code converted to dynamic!', 'success');
+                await refreshDashboard();
             } catch (error) {
                 console.error('Edit QR error:', error);
-                showToast('Failed to update QR code', 'error');
+
+                // Don't show duplicate error if upgrade modal is being shown
+                if (!error.upgradeRequired) {
+                    showToast(error.message || 'Failed to update QR code', 'error');
+                }
             }
         }
 
@@ -2911,8 +3068,9 @@
         async function deleteQRCode(qrId, type) {
             const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
 
-            // Confirm deletion
-            if (!confirm('Are you sure you want to delete this QR code? This action cannot be undone.')) {
+            // Confirm deletion with custom modal
+            const confirmed = await showConfirmModal('Are you sure you want to delete this QR code? This action cannot be undone.', 'Delete QR Code');
+            if (!confirmed) {
                 return;
             }
 
@@ -2925,30 +3083,20 @@
                     showToast('✅ QR code deleted from your device!', 'success');
                     refreshDashboard();
                 } else {
-                    // Delete dynamic QR from API
+                    // Delete dynamic QR code via API
                     if (!authToken) {
                         showToast('Please sign in to delete cloud QR codes', 'error');
                         return;
                     }
 
-                    const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${authToken}`
-                        }
-                    });
-
-                    if (response.ok) {
-                        showToast('✅ QR code deleted successfully!', 'success');
-                        refreshDashboard();
-                    } else {
-                        const error = await response.json();
-                        showToast(error.message || 'Failed to delete QR code', 'error');
-                    }
+                    // Use the SnapITAPI method for deletion
+                    await SnapITAPI.qr.delete(qrId);
+                    showToast('✅ QR code deleted successfully!', 'success');
+                    refreshDashboard();
                 }
             } catch (error) {
                 console.error('Delete QR error:', error);
-                showToast('Failed to delete QR code', 'error');
+                showToast(error.message || 'Failed to delete QR code', 'error');
             }
         }
 
@@ -3215,7 +3363,12 @@
                     monthlyAmount: '$199',
                     yearlyAmount: '$1,592',
                     name: 'Business'
-                }
+                },
+                personal: { monthlyPriceId: "price_1SJIkjRE8RY21XQR852sQslC", monthlyAmount: "$19", name: "Core" },
+                small: { monthlyPriceId: "price_1SJIkjRE8RY21XQR852sQslC", monthlyAmount: "$19", name: "Core" },
+                medium: { monthlyPriceId: "price_1SJIkoRE8RY21XQRZ8WiodpU", monthlyAmount: "$69", name: "Growth" },
+                large: { monthlyPriceId: "price_1SJIkoRE8RY21XQRZ8WiodpU", monthlyAmount: "$69", name: "Growth" },
+                enterprise: { monthlyPriceId: "price_1SJIksRE8RY21XQRsdtzN7cr", monthlyAmount: "$199", name: "Business" }
             }
         };
 
@@ -3235,95 +3388,102 @@
                         <h2>🚀 Upgrade Your Plan</h2>
                         <button class="close-btn" onclick="this.closest('.upgrade-modal').remove()">×</button>
                     </div>
-                    
-                    <div class="billing-toggle" style="text-align: center; margin-bottom: 2rem;">
-                        <button class="billing-btn active" data-period="monthly">Monthly</button>
-                        <button class="billing-btn" data-period="yearly">Yearly <span style="color: #10b981;">(Save 20%)</span></button>
-                    </div>
 
-                    <div class="pricing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; overflow-x: auto;">
+                    <p style="text-align: center; color: var(--gray-600); margin-bottom: 1.5rem;">
+                        One subscription unlocks all features across <strong>SnapIT QR</strong>, <strong>SnapIT URL</strong>, <strong>SnapIT Forms</strong>, and <strong>SnapIT Polls</strong>
+                    </p>
+
+                    <p style="text-align: center; color: var(--gray-700); margin-bottom: 2rem; font-weight: 600;">
+                        All plans are monthly recurring subscriptions
+                    </p>
+
+                    <div class="pricing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; max-width: 1400px; margin: 0 auto;">
                         <div class="pricing-card">
                             <h3>FREE</h3>
                             <div class="price">$0<span>/forever</span></div>
                             <ul>
-                                <li>✅ 20 Dynamic QR Codes</li>
-                                <li>✅ 50 Short URLs</li>
-                                <li>✅ 100 Form Responses/month</li>
-                                <li>✅ Unlimited Static QR Codes</li>
+                                <li>✅ 3 Dynamic QR Codes</li>
+                                <li>✅ 10 Short URLs/month</li>
+                                <li>✅ 1 Form (50 submissions)</li>
+                                <li>✅ Unlimited Basic Polls</li>
                                 <li>✅ Basic Analytics</li>
-                                <li>✅ Custom Design & Logo</li>
                             </ul>
                             <button class="btn btn-secondary" disabled>Current Plan</button>
                         </div>
 
                         <div class="pricing-card">
-                            <h3>Starter</h3>
-                            <div class="price" data-monthly="$3.99" data-yearly="$39.99">$3.99<span class="period">/month</span></div>
+                            <h3>Personal</h3>
+                            <div class="price">$9.99<span>/month</span></div>
                             <ul>
-                                <li>✅ 500 Dynamic QR Codes/month</li>
-                                <li>✅ 1,000 Short URLs</li>
-                                <li>✅ 1,000 Form Responses</li>
-                                <li>✅ Advanced Customization</li>
-                                <li>✅ Real-time Analytics</li>
-                                <li>✅ CSV Export</li>
+                                <li>✅ 50 Dynamic QR Codes</li>
+                                <li>✅ 250 Short URLs/month</li>
+                                <li>✅ 5 Forms (500 submissions)</li>
+                                <li>✅ Basic Polls</li>
+                                <li>✅ Basic Analytics</li>
                             </ul>
-                            <button class="btn btn-primary" onclick="upgradeToplan('starter')">Choose Starter</button>
+                            <button class="btn btn-primary" onclick="upgradeToplan('personal')">Choose Personal</button>
                         </div>
 
                         <div class="pricing-card popular">
                             <div class="popular-badge">Most Popular</div>
-                            <h3>Professional</h3>
-                            <div class="price" data-monthly="$9.99" data-yearly="$99.99">$9.99<span class="period">/month</span></div>
+                            <h3>Small Business</h3>
+                            <div class="price">$29.99<span>/month</span></div>
                             <ul>
-                                <li>✅ 2,500 Dynamic QR Codes/month</li>
-                                <li>✅ 5,000 Short URLs</li>
-                                <li>✅ 5,000 Form Responses</li>
-                                <li>✅ Full Branding Control</li>
+                                <li>✅ 150 Dynamic QR Codes</li>
+                                <li>✅ 750 Short URLs/month</li>
+                                <li>✅ 15 Forms (2K submissions)</li>
+                                <li>✅ Advanced Polls (50)</li>
                                 <li>✅ Advanced Analytics</li>
-                                <li>✅ API Access (Basic)</li>
+                                <li>✅ CSV Export</li>
                             </ul>
-                            <button class="btn btn-primary" onclick="upgradeToplan('professional')">Choose Professional</button>
+                            <button class="btn btn-primary" onclick="upgradeToplan('small')">Choose Small</button>
                         </div>
 
                         <div class="pricing-card">
-                            <h3>Business</h3>
-                            <div class="price" data-monthly="$29.99" data-yearly="$299.99">$29.99<span class="period">/month</span></div>
+                            <h3>Medium Business</h3>
+                            <div class="price">$69.99<span>/month</span></div>
                             <ul>
-                                <li>✅ 10,000 Dynamic QR Codes/month</li>
-                                <li>✅ 25,000 Short URLs</li>
-                                <li>✅ 25,000 Form Responses</li>
-                                <li>✅ Team Collaboration (15 users)</li>
-                                <li>✅ Custom Integrations</li>
-                                <li>✅ Priority Support</li>
+                                <li>✅ <strong>3 Custom Domains</strong></li>
+                                <li>✅ 500 Dynamic QR Codes</li>
+                                <li>✅ 2,500 Short URLs/month</li>
+                                <li>✅ 50 Forms (10K submissions)</li>
+                                <li>✅ Advanced Polls (200)</li>
+                                <li>✅ Team (5 users)</li>
+                                <li>✅ API Access (5K req/mo)</li>
                             </ul>
-                            <button class="btn btn-primary" onclick="upgradeToplan('business')">Choose Business</button>
+                            <button class="btn btn-primary" onclick="upgradeToplan('medium')">Choose Medium</button>
                         </div>
 
                         <div class="pricing-card">
-                            <h3>Premium</h3>
-                            <div class="price" data-monthly="$49.99" data-yearly="$499.99">$49.99<span class="period">/month</span></div>
+                            <h3>Large Business</h3>
+                            <div class="price">$149.99<span>/month</span></div>
                             <ul>
-                                <li>✅ 50,000 Dynamic QR Codes/month</li>
-                                <li>✅ 100,000 Short URLs</li>
-                                <li>✅ 100,000 Form Responses</li>
-                                <li>✅ Advanced Team Features (50 users)</li>
-                                <li>✅ 10 Custom Domains</li>
-                                <li>✅ Dedicated Account Manager</li>
+                                <li>✅ <strong>10 Custom Domains</strong></li>
+                                <li>✅ 2,000 Dynamic QR Codes</li>
+                                <li>✅ 10K Short URLs/month</li>
+                                <li>✅ 200 Forms (50K submissions)</li>
+                                <li>✅ Advanced Polls (1K)</li>
+                                <li>✅ Team (10 users)</li>
+                                <li>✅ API Access (50K req/mo)</li>
+                                <li>✅ White-label Options</li>
                             </ul>
-                            <button class="btn btn-primary" onclick="upgradeToplan('premium')">Choose Premium</button>
+                            <button class="btn btn-primary" onclick="upgradeToplan('large')">Choose Large</button>
                         </div>
 
                         <div class="pricing-card">
                             <h3>Enterprise</h3>
-                            <div class="price" data-monthly="$99.99" data-yearly="$999.99">$99.99<span class="period">/month</span></div>
+                            <div class="price">$299.99<span>/month</span></div>
                             <ul>
-                                <li>✅ Unlimited Dynamic QR Codes</li>
+                                <li>✅ <strong>UNLIMITED Everything</strong></li>
+                                <li>✅ Unlimited QR Codes</li>
                                 <li>✅ Unlimited Short URLs</li>
-                                <li>✅ Unlimited Form Responses</li>
+                                <li>✅ Unlimited Forms & Submissions</li>
+                                <li>✅ Unlimited Polls</li>
+                                <li>✅ Unlimited Domains</li>
                                 <li>✅ Unlimited Team Members</li>
-                                <li>✅ Unlimited Custom Domains</li>
-                                <li>✅ White-glove Onboarding</li>
-                                <li>✅ 24/7 Dedicated Support</li>
+                                <li>✅ Unlimited API Access</li>
+                                <li>✅ Dedicated Support</li>
+                                <li>✅ White-labeling & SLA</li>
                             </ul>
                             <button class="btn btn-primary" onclick="upgradeToplan('enterprise')">Choose Enterprise</button>
                         </div>
@@ -3334,23 +3494,6 @@
 
             document.body.appendChild(modal);
             setTimeout(() => modal.classList.add('show'), 100);
-
-            // Billing period toggle - add event listeners after modal is added to DOM
-            modal.querySelectorAll('.billing-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    modal.querySelectorAll('.billing-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    const period = this.dataset.period;
-                    modal.querySelectorAll('.price').forEach(priceEl => {
-                        const monthly = priceEl.dataset.monthly;
-                        const yearly = priceEl.dataset.yearly;
-                        if (monthly && yearly) {
-                            priceEl.innerHTML = (period === 'monthly' ? monthly : yearly) +
-                                '<span class="period">/' + (period === 'monthly' ? 'month' : 'year') + '</span>';
-                        }
-                    });
-                });
-            });
         }
 
         // Upgrade to specific plan
@@ -3372,26 +3515,36 @@
                     window.stripe = Stripe(STRIPE_CONFIG.publishableKey);
                 }
 
-                // Determine billing period (monthly or yearly)
-                const billingPeriod = document.querySelector('.billing-btn.active')?.dataset.period || 'monthly';
-                const priceId = billingPeriod === 'monthly' ? plan.monthlyPriceId : plan.yearlyPriceId;
-                const amount = billingPeriod === 'monthly' ? plan.monthlyAmount : plan.yearlyAmount;
+                // Use monthly pricing (only option)
+                const priceId = plan.monthlyPriceId;
+                const amount = plan.monthlyAmount;
 
-                showToast(`Redirecting to payment for ${plan.name} plan (${amount}/${billingPeriod})...`, 'info');
+                showToast(`Redirecting to payment for ${plan.name} plan (${amount}/month)...`, 'info');
 
                 // Call backend to create checkout session
+                const authToken = SnapITAPI.getToken();
+
                 const response = await fetch('https://api.snapitqr.com/create-checkout-session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
                     },
                     body: JSON.stringify({
                         priceId: priceId,
-                        userId: currentUser.sub || currentUser.id,
+                        userId: currentUser.sub || currentUser.id || currentUser.email,
+                        email: currentUser.email,
                         planName: plan.name,
-                        billingPeriod: billingPeriod
+                        billingPeriod: 'monthly',
+                        successUrl: `${window.location.origin}/?upgrade=success`,
+                        cancelUrl: `${window.location.origin}/?upgrade=cancelled`
                     })
                 });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ error: 'Authentication required' }));
+                    throw new Error(error.error || 'Failed to create checkout session');
+                }
 
                 const session = await response.json();
 
@@ -4080,5 +4233,209 @@
             }
         }
     </script>
+
+    <!-- SnapIT Suite Footer -->
+    <footer class="app-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>SnapIT Suite</h3>
+                <ul>
+                    <li><a href="https://snapitsoftware.com" target="_blank" rel="noopener noreferrer">SnapIT Software</a></li>
+                    <li><a href="https://snapitforms.com" target="_blank" rel="noopener noreferrer">SnapIT Forms</a></li>
+                    <li><a href="https://snapitanalytics.com" target="_blank" rel="noopener noreferrer">SnapIT Analytics</a></li>
+                    <li><a href="https://snapitagent.com" target="_blank" rel="noopener noreferrer">SnapIT Agent</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h3>Tools & Utilities</h3>
+                <ul>
+                    <li><a href="https://burn.snapitsoftware.com" target="_blank" rel="noopener noreferrer">SnapIT Burn</a></li>
+                    <li><a href="https://polls.snapitsoftware.com" target="_blank" rel="noopener noreferrer">SnapIT Polls</a></li>
+                    <li><a href="https://snapitqr.com" target="_blank" rel="noopener noreferrer">SnapIT QR</a></li>
+                    <li><a href="https://snapiturl.com" target="_blank" rel="noopener noreferrer">SnapIT URL</a></li>
+                    <li><a href="https://urlstatuschecker.com" target="_blank" rel="noopener noreferrer">URL Status Checker</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul>
+                    <li><a href="https://pdf.snapitsoftware.com" target="_blank" rel="noopener noreferrer">PDF Tools</a></li>
+                    <li><a href="https://chimera.snapitsoftware.com" target="_blank" rel="noopener noreferrer">Chimera</a></li>
+                    <li><a href="https://forum.snapitsoftware.com" target="_blank" rel="noopener noreferrer">SnapIT Forum</a></li>
+                    <li><a href="https://forums.snapitsoftware.com" target="_blank" rel="noopener noreferrer">Forum Builder</a></li>
+                    <li><a href="https://api.snapitsoftware.com" target="_blank" rel="noopener noreferrer">API Documentation</a></li>
+                    <li><a href="https://snapitsoft.com" target="_blank" rel="noopener noreferrer">SnapIT Soft</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h3>Legal & Support</h3>
+                <ul>
+                    <li><a href="#" onclick="showTermsModal(); return false;">Terms of Service</a></li>
+                    <li><a href="#" onclick="showPrivacyModal(); return false;">Privacy Policy</a></li>
+                    <li><a href="#" onclick="showFeedbackModal(); return false;">Send Feedback</a></li>
+                </ul>
+                <p class="footer-description">
+                    Create stunning QR codes and branded short URLs with real-time analytics. One subscription unlocks all SnapIT products.
+                </p>
+                <p class="footer-copyright">
+                    © 2025 SnapIT Software. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <style>
+        .app-footer {
+            background: #000000;
+            color: white;
+            padding: 60px 20px 30px;
+            margin-top: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, #667eea 50%, transparent 100%);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .footer-section h3 {
+            font-size: 14px;
+            margin-bottom: 20px;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            position: relative;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+
+        .footer-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 30px;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, transparent);
+            transition: width 0.3s ease;
+        }
+
+        .footer-section:hover h3::after {
+            width: 60px;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 12px;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .footer-section a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 15px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            display: inline-block;
+            padding: 4px 0;
+        }
+
+        .footer-section a::before {
+            content: '→';
+            position: absolute;
+            left: -20px;
+            opacity: 0;
+            color: #667eea;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(-10px);
+        }
+
+        .footer-section a:hover {
+            color: #667eea;
+            transform: translateX(8px);
+            text-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .footer-section a:hover::before {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .footer-description {
+            font-size: 14px;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+
+        .footer-copyright {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 20px;
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            grid-column: 1 / -1;
+            animation: fadeIn 1s ease-out 0.3s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+
+            .app-footer {
+                padding: 30px 15px 15px;
+            }
+        }
+    </style>
 </body>
 </html>

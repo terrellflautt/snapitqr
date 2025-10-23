@@ -20,9 +20,6 @@ def create_lambda_package():
         # Add node_modules selectively (only production dependencies)
         if os.path.exists('node_modules'):
             for root, dirs, files in os.walk('node_modules'):
-                # Skip aws-sdk (provided by Lambda runtime)
-                if 'aws-sdk' in root:
-                    continue
                 # Skip development dependencies and large files
                 if any(skip in root for skip in ['.bin', 'test', 'tests', 'example', 'examples', 'docs', '.cache']):
                     continue

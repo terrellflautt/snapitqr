@@ -1,22 +1,24 @@
 const AWS = require('aws-sdk');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
 const rateLimiter = require('./rate-limiter');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const TIER_LIMITS = {
   free: {
-    dynamicQRs: 10,
+    dynamicQRs: 1,
     staticQRs: Infinity
   },
   core: {
-    dynamicQRs: 1000,
+    dynamicQRs: 50,
     staticQRs: Infinity
   },
   growth: {
-    dynamicQRs: 5000,
+    dynamicQRs: 500,
     staticQRs: Infinity
   },
   business: {
@@ -31,8 +33,24 @@ exports.handler = async (event) => {
   try {
     const path = event.resource;
     const method = event.httpMethod;
-    const userId = event.requestContext.authorizer?.userId;
-    const userTier = event.requestContext.authorizer?.tier || 'free';
+    let userId = event.requestContext.authorizer?.userId;
+    let userTier = event.requestContext.authorizer?.tier || 'free';
+
+    // If no authorizer context, try to decode JWT from Authorization header
+    if (!userId) {
+      const authHeader = event.headers?.Authorization || event.headers?.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.substring(7);
+          const decoded = jwt.verify(token, JWT_SECRET);
+          userId = decoded.userId || decoded.sub;
+          userTier = decoded.tier || 'free';
+        } catch (jwtError) {
+          console.log('JWT verification failed:', jwtError.message);
+          // userId remains undefined - will be treated as anonymous
+        }
+      }
+    }
 
     // CORS headers
     const headers = {
@@ -48,15 +66,23 @@ exports.handler = async (event) => {
     }
 
     // Route to appropriate handler
-    if ((path === '/qr/generate' || path === '/generate') && method === 'POST') {
+    const resource = event.resource || path;
+    const pathParams = event.pathParameters || {};
+
+    // Redirect handler for dynamic QR codes (no auth required)
+    if ((resource === '/r/{id}' || path.startsWith('/r/')) && pathParams.id && method === 'GET') {
+      return await redirectQRCode(event);
+    }
+
+    if ((path === '/qr/generate' || path === '/generate' || path === '/qr-codes' || resource === '/qr-codes') && method === 'POST') {
       return await generateQRCode(event, userId, userTier, headers);
-    } else if ((path === '/qr/list' || path === '/qr-codes') && method === 'GET') {
+    } else if ((path === '/qr/list' || path === '/qr-codes' || resource === '/qr-codes') && method === 'GET') {
       return await listQRCodes(event, userId, headers);
-    } else if (path.startsWith('/qr/') && method === 'GET') {
+    } else if ((resource === '/qr/{id}' || resource === '/qr-codes/{id}') && pathParams.id && method === 'GET') {
       return await getQRCode(event, headers);
-    } else if (path.startsWith('/qr/') && method === 'PUT') {
-      return await updateQRCode(event, userId, headers);
-    } else if (path.startsWith('/qr/') && method === 'DELETE') {
+    } else if ((resource === '/qr/{id}' || resource === '/qr-codes/{id}') && pathParams.id && method === 'PUT') {
+      return await updateQRCode(event, userId, userTier, headers);
+    } else if ((resource === '/qr/{id}' || resource === '/qr-codes/{id}') && pathParams.id && method === 'DELETE') {
       return await deleteQRCode(event, userId, headers);
     }
 
@@ -159,7 +185,7 @@ async function generateQRCode(event, userId, userTier, headers) {
 
   // For dynamic QR codes, create a redirect URL
   if (qrType === 'dynamic') {
-    qrContent = `https://snapitqr.com/r/${qrId}`;
+    qrContent = `https://api.snapitqr.com/r/${qrId}`;
   }
 
   // Generate QR code image
@@ -271,12 +297,19 @@ async function listQRCodes(event, userId, headers) {
 async function getQRCode(event, headers) {
   const qrId = event.pathParameters.id;
 
-  const result = await dynamodb.get({
+  // Table has composite key (qrId + userId), so we need to scan for public access
+  const result = await dynamodb.scan({
     TableName: 'snapitqr-qrcodes',
-    Key: { qrId }
+    FilterExpression: 'qrId = :qrId',
+    ExpressionAttributeValues: {
+      ':qrId': qrId
+    },
+    Limit: 1
   }).promise();
 
-  if (!result.Item) {
+  const item = result.Items && result.Items.length > 0 ? result.Items[0] : null;
+
+  if (!item) {
     return {
       statusCode: 404,
       headers,
@@ -289,28 +322,53 @@ async function getQRCode(event, headers) {
     headers,
     body: JSON.stringify({
       success: true,
-      qrCode: result.Item
+      qrCode: item
     })
   };
 }
 
-async function updateQRCode(event, userId, headers) {
-  if (!userId) {
+async function updateQRCode(event, userId, userTier, headers) {
+  if (!userId || userId === 'anonymous') {
     return {
       statusCode: 401,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' })
+      body: JSON.stringify({ error: 'Authentication required to edit QR codes' })
     };
   }
 
   const qrId = event.pathParameters.id;
   const body = JSON.parse(event.body || '{}');
 
-  // Get existing QR code
-  const existing = await dynamodb.get({
+  // Try to get QR code with current userId first
+  let existing = await dynamodb.get({
     TableName: 'snapitqr-qrcodes',
-    Key: { qrId }
+    Key: { qrId, userId }
   }).promise();
+
+  // If not found, check if it exists with anonymous userId (for migration)
+  if (!existing.Item) {
+    const anonymousCheck = await dynamodb.get({
+      TableName: 'snapitqr-qrcodes',
+      Key: { qrId, userId: 'anonymous' }
+    }).promise();
+
+    if (anonymousCheck.Item) {
+      // Migrate anonymous QR code to current user
+      await dynamodb.delete({
+        TableName: 'snapitqr-qrcodes',
+        Key: { qrId, userId: 'anonymous' }
+      }).promise();
+
+      anonymousCheck.Item.userId = userId;
+
+      await dynamodb.put({
+        TableName: 'snapitqr-qrcodes',
+        Item: anonymousCheck.Item
+      }).promise();
+
+      existing.Item = anonymousCheck.Item;
+    }
+  }
 
   if (!existing.Item) {
     return {
@@ -320,7 +378,7 @@ async function updateQRCode(event, userId, headers) {
     };
   }
 
-  // Check ownership
+  // Check ownership (should always match after migration above)
   if (existing.Item.userId !== userId) {
     return {
       statusCode: 403,
@@ -329,13 +387,46 @@ async function updateQRCode(event, userId, headers) {
     };
   }
 
-  // Only dynamic QR codes can be updated
-  if (existing.Item.type !== 'dynamic') {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Only dynamic QR codes can be updated' })
-    };
+  const isConvertingToDynamic = existing.Item.type === 'static' && body.content;
+  const isEditingDynamic = existing.Item.type === 'dynamic' && body.content;
+
+  // If converting static to dynamic, check usage limits
+  if (isConvertingToDynamic) {
+    const usage = await checkUsageLimit(userId, 'dynamicQRs', userTier || 'free');
+    if (!usage.allowed) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({
+          error: usage.message,
+          usage: usage.current,
+          limit: usage.limit,
+          upgradeRequired: true,
+          upgradeUrl: 'https://snapitqr.com/#pricing'
+        })
+      };
+    }
+  }
+
+  // For free tier, enforce once-per-day edit limit on dynamic QR codes
+  if (isEditingDynamic && userTier === 'free') {
+    const lastEditedAt = existing.Item.lastEditedAt || existing.Item.updatedAt || existing.Item.createdAt;
+    const now = Date.now();
+    const hoursSinceLastEdit = (now - lastEditedAt) / (1000 * 60 * 60);
+
+    if (hoursSinceLastEdit < 24) {
+      const hoursRemaining = Math.ceil(24 - hoursSinceLastEdit);
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({
+          error: `Free tier allows editing dynamic QR codes once per day. Please wait ${hoursRemaining} hour(s) or upgrade for unlimited edits.`,
+          hoursRemaining,
+          upgradeRequired: true,
+          upgradeUrl: 'https://snapitqr.com/#pricing'
+        })
+      };
+    }
   }
 
   // Update the content
@@ -347,6 +438,16 @@ async function updateQRCode(event, userId, headers) {
     updateExpression.push('#content = :content');
     expressionAttributeNames['#content'] = 'content';
     expressionAttributeValues[':content'] = body.content;
+
+    // If converting to dynamic, create redirect URL and update type
+    if (isConvertingToDynamic) {
+      const redirectUrl = `https://api.snapitqr.com/r/${qrId}`;
+      updateExpression.push('redirectUrl = :redirectUrl');
+      expressionAttributeValues[':redirectUrl'] = redirectUrl;
+      updateExpression.push('#type = :type');
+      expressionAttributeNames['#type'] = 'type';
+      expressionAttributeValues[':type'] = 'dynamic';
+    }
   }
 
   if (body.name) {
@@ -369,20 +470,31 @@ async function updateQRCode(event, userId, headers) {
   updateExpression.push('updatedAt = :updatedAt');
   expressionAttributeValues[':updatedAt'] = Date.now();
 
+  // Track lastEditedAt for rate limiting (only when content changes)
+  if (body.content) {
+    updateExpression.push('lastEditedAt = :lastEditedAt');
+    expressionAttributeValues[':lastEditedAt'] = Date.now();
+  }
+
   await dynamodb.update({
     TableName: 'snapitqr-qrcodes',
-    Key: { qrId },
+    Key: { qrId, userId },
     UpdateExpression: 'SET ' + updateExpression.join(', '),
     ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
     ExpressionAttributeValues: expressionAttributeValues
   }).promise();
 
+  // Increment usage count if converting to dynamic
+  if (isConvertingToDynamic) {
+    await incrementUsage(userId, 'dynamicQRs');
+  }
+
   // Track analytics event
   await trackAnalyticsEvent({
-    eventType: 'qr_updated',
+    eventType: isConvertingToDynamic ? 'qr_converted_to_dynamic' : 'qr_updated',
     qrId,
     userId,
-    metadata: { changes: Object.keys(body) }
+    metadata: { changes: Object.keys(body), wasStatic: isConvertingToDynamic }
   });
 
   return {
@@ -390,7 +502,10 @@ async function updateQRCode(event, userId, headers) {
     headers,
     body: JSON.stringify({
       success: true,
-      message: 'QR code updated successfully'
+      message: isConvertingToDynamic
+        ? 'QR code converted to dynamic successfully'
+        : 'QR code updated successfully',
+      convertedToDynamic: isConvertingToDynamic
     })
   };
 }
@@ -406,10 +521,10 @@ async function deleteQRCode(event, userId, headers) {
 
   const qrId = event.pathParameters.id;
 
-  // Get existing QR code
+  // Get existing QR code (table has composite key: qrId + userId)
   const existing = await dynamodb.get({
     TableName: 'snapitqr-qrcodes',
-    Key: { qrId }
+    Key: { qrId, userId }
   }).promise();
 
   if (!existing.Item) {
@@ -429,10 +544,10 @@ async function deleteQRCode(event, userId, headers) {
     };
   }
 
-  // Delete from DynamoDB
+  // Delete from DynamoDB (composite key: qrId + userId)
   await dynamodb.delete({
     TableName: 'snapitqr-qrcodes',
-    Key: { qrId }
+    Key: { qrId, userId }
   }).promise();
 
   // Decrement usage for dynamic QR codes
@@ -456,6 +571,78 @@ async function deleteQRCode(event, userId, headers) {
       message: 'QR code deleted successfully'
     })
   };
+}
+
+async function redirectQRCode(event) {
+  const qrId = event.pathParameters.id;
+
+  try {
+    // Scan DynamoDB for this qrId across all users
+    const result = await dynamodb.scan({
+      TableName: 'snapitqr-qrcodes',
+      FilterExpression: 'qrId = :qrId',
+      ExpressionAttributeValues: {
+        ':qrId': qrId
+      },
+      Limit: 1
+    }).promise();
+
+    if (!result.Items || result.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: { 'Content-Type': 'text/html' },
+        body: '<!DOCTYPE html><html><head><title>QR Code Not Found</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;text-align:center;padding:20px}h1{font-size:3rem;margin:0 0 1rem 0}p{font-size:1.25rem;opacity:.9}a{color:#fff}</style></head><body><div><h1>404</h1><p>This QR code does not exist or has been deleted.</p><p><a href="https://snapitqr.com">Create your own at SnapIT QR</a></p></div></body></html>'
+      };
+    }
+
+    const qrCode = result.Items[0];
+
+    if (qrCode.status !== 'active') {
+      return {
+        statusCode: 410,
+        headers: { 'Content-Type': 'text/html' },
+        body: '<!DOCTYPE html><html><head><title>QR Code Disabled</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;text-align:center;padding:20px}h1{font-size:3rem;margin:0 0 1rem 0}p{font-size:1.25rem;opacity:.9}</style></head><body><div><h1>Disabled</h1><p>This QR code has been disabled by its owner.</p></div></body></html>'
+      };
+    }
+
+    // Increment scan count
+    await dynamodb.update({
+      TableName: 'snapitqr-qrcodes',
+      Key: { qrId: qrCode.qrId, userId: qrCode.userId },
+      UpdateExpression: 'ADD scans :inc',
+      ExpressionAttributeValues: { ':inc': 1 }
+    }).promise();
+
+    // Track analytics
+    await trackAnalyticsEvent({
+      eventType: 'qr_scanned',
+      qrId,
+      userId: qrCode.userId,
+      metadata: {
+        destination: qrCode.content,
+        userAgent: event.headers?.['User-Agent'],
+        country: event.headers?.['CloudFront-Viewer-Country']
+      }
+    });
+
+    // Redirect to destination
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': qrCode.content,
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      },
+      body: ''
+    };
+
+  } catch (error) {
+    console.error('Redirect error:', error);
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'text/html' },
+      body: '<!DOCTYPE html><html><head><title>Error</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;text-align:center;padding:20px}h1{font-size:3rem;margin:0 0 1rem 0}p{font-size:1.25rem;opacity:.9}</style></head><body><div><h1>Error</h1><p>An error occurred while processing this QR code.</p></div></body></html>'
+    };
+  }
 }
 
 async function checkUsageLimit(userId, resource, tier) {
@@ -491,8 +678,9 @@ async function incrementUsage(userId, resource) {
   await dynamodb.update({
     TableName: 'snapitqr-users',
     Key: { userId },
-    UpdateExpression: 'ADD usage.#resource :inc',
+    UpdateExpression: 'ADD #usage.#resource :inc',
     ExpressionAttributeNames: {
+      '#usage': 'usage',
       '#resource': resource
     },
     ExpressionAttributeValues: {
@@ -505,8 +693,9 @@ async function decrementUsage(userId, resource) {
   await dynamodb.update({
     TableName: 'snapitqr-users',
     Key: { userId },
-    UpdateExpression: 'ADD usage.#resource :dec',
+    UpdateExpression: 'ADD #usage.#resource :dec',
     ExpressionAttributeNames: {
+      '#usage': 'usage',
       '#resource': resource
     },
     ExpressionAttributeValues: {

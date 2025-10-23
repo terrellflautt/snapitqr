@@ -20,7 +20,7 @@ const PRICE_IDS = {
 const TIER_LIMITS = {
   free: {
     staticQRs: Infinity,
-    dynamicQRs: 10,
+    dynamicQRs: 1,
     shortURLs: 10,
     customDomains: 0,
     apiCalls: 0,
@@ -29,8 +29,8 @@ const TIER_LIMITS = {
   },
   core: {
     staticQRs: Infinity,
-    dynamicQRs: 1000,
-    shortURLs: 1000,
+    dynamicQRs: 50,
+    shortURLs: 500,
     customDomains: 1,
     apiCalls: 10000,
     teamMembers: 1,
@@ -38,7 +38,7 @@ const TIER_LIMITS = {
   },
   growth: {
     staticQRs: Infinity,
-    dynamicQRs: 5000,
+    dynamicQRs: 500,
     shortURLs: 5000,
     customDomains: 5,
     apiCalls: 100000,

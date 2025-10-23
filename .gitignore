@@ -12,6 +12,8 @@ aws-credentials.json
 # Node modules
 node_modules/
 npm-debug.log*
+yarn-error.log*
+package-lock.json
 
 # Logs
 logs
@@ -22,6 +24,7 @@ logs
 .idea/
 *.swp
 *.swo
+.claude_code_config.json
 
 # OS files
 .DS_Store
@@ -36,8 +39,27 @@ temp/
 dist/
 build/
 
+# Lambda deployment packages
+*.zip
+function.zip
+deploy-*.zip
+snapitqr-*.zip
+
+# Backup files
+*.backup
+*.backup-*
+*.bak
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
 # Private notes and documentation
 *-private.txt
 *-secret.txt
 claude-read-this-*
 claude-do-this.txt
+work*.txt
