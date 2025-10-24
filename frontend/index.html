@@ -1158,9 +1158,14 @@
 
         <!-- Dashboard -->
         <section id="dashboard" class="dashboard glass-card">
-            <div class="card-header">
-                <div class="card-icon">📊</div>
-                <h2 class="card-title">Your Dashboard</h2>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: var(--space-3);">
+                    <div class="card-icon">📊</div>
+                    <h2 class="card-title">Your Dashboard</h2>
+                </div>
+                <button onclick="refreshDashboard()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.875rem;">
+                    🔄 Refresh
+                </button>
             </div>
 
             <div class="stats-grid">
@@ -1815,7 +1820,9 @@
                 if (authResponse.ok) {
                     const authData = await authResponse.json();
                     if (authData.success) {
-                        localStorage.setItem('snapitqr_token', authData.token);
+                        // Store token in UNIFIED location for cross-platform compatibility
+                        localStorage.setItem('snapit_token', authData.token);
+                        localStorage.setItem('snapitqr_token', authData.token); // Keep for backwards compatibility
                         localStorage.setItem('snapitqr_user', JSON.stringify(authData.user));
 
                         currentUser = authData.user;
@@ -1856,7 +1863,7 @@
 
             // Fallback to local QR authentication
             const userData = localStorage.getItem('snapitqr_user');
-            const authToken = localStorage.getItem('snapitqr_token');
+            const authToken = SnapITAPI.getToken();
 
             if (userData && authToken) {
                 try {
@@ -2060,8 +2067,8 @@
 
         // Generate dynamic QR code via API
         async function generateDynamicQRCode(content, options) {
-            // Use unified access key first, fallback to platform-specific token
-            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            // Use unified token
+            const authToken = SnapITAPI.getToken();
 
             try {
                 const response = await fetch('https://api.snapitqr.com/qr-codes', {
@@ -2286,8 +2293,8 @@
 
         // Save QR Code
         async function saveQRCode() {
-            // Use unified access key first, fallback to platform-specific token
-            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            // Use unified token
+            const authToken = SnapITAPI.getToken();
 
             if (!currentQR) {
                 showToast('No QR code to save. Generate one first!', 'warning');
@@ -2313,7 +2320,7 @@
                         },
                         body: JSON.stringify({
                             content: content,
-                            type: 'static',
+                            type: 'dynamic',  // Always create as dynamic so image never changes
                             name: `QR Code - ${new Date().toLocaleDateString()}`,
                             customization: {
                                 size: currentQR.options?.size || 300,
@@ -2434,7 +2441,7 @@
             }
 
             try {
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
 
                 if (!authToken) {
                     showToast('Please sign in to create short URLs', 'error');
@@ -2642,8 +2649,8 @@
         }
 
         async function refreshDashboard() {
-            // Use unified access key first, fallback to platform-specific token
-            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            // Use unified access key from SnapITAPI
+            const authToken = SnapITAPI.getToken();
             staticQRs = getStaticQRCodes();
             dynamicQRs = [];
             shortUrls = [];  // Fixed: removed 'let' to use global variable
@@ -2857,7 +2864,7 @@
             try {
                 showToast('Converting to dynamic QR code...', 'info');
 
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
                 const response = await fetch('https://api.snapitqr.com/qr-codes', {
                     method: 'POST',
                     headers: {
@@ -2905,6 +2912,26 @@
                     return;
                 }
 
+                // For dynamic QR codes, ALWAYS download from S3 to ensure the image never changes
+                if (qrType === 'dynamic' && qr.qrUrl) {
+                    try {
+                        const response = await fetch(qr.qrUrl);
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `${name || qr.name || 'snapit-qr'}-${Date.now()}.png`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        showToast('QR code downloaded!', 'success');
+                        return;
+                    } catch (error) {
+                        console.error('Failed to download from S3:', error);
+                        showToast('Failed to download QR code from server', 'error');
+                        return;
+                    }
+                }
+
                 // Get customization settings
                 const customization = qr.customization || {};
                 const fgColor = customization.foregroundColor || '#000000';
@@ -2949,9 +2976,13 @@
 
                 // Generate QR code on temporary canvas
                 const qrCanvas = document.createElement('canvas');
+                // For dynamic QR codes, use the redirect URL so the image never changes
+                const qrValue = (qrType === 'dynamic' && qr.redirectUrl)
+                    ? qr.redirectUrl
+                    : (qr.content || qr.destinationUrl || qr.url || '');
                 const qrious = new QRious({
                     element: qrCanvas,
-                    value: qr.content || qr.destinationUrl || qr.url || '',
+                    value: qrValue,
                     size: size,
                     background: bgColor,
                     foreground: fgColor,
@@ -3011,7 +3042,7 @@
         // Edit QR code (supports converting static to dynamic)
         async function editQRCode(qrId) {
             try {
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
 
                 if (!authToken) {
                     showToast('Please sign in to edit QR codes', 'error');
@@ -3066,7 +3097,7 @@
 
         // Delete QR code
         async function deleteQRCode(qrId, type) {
-            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            const authToken = SnapITAPI.getToken();
 
             // Confirm deletion with custom modal
             const confirmed = await showConfirmModal('Are you sure you want to delete this QR code? This action cannot be undone.', 'Delete QR Code');
@@ -3197,7 +3228,7 @@
             showToast('Loading analytics...', 'info');
 
             try {
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
                 const response = await fetch(`https://api.snapitqr.com/analytics/url/${shortCode}`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
@@ -3287,7 +3318,7 @@
             if (!newDestination || newDestination === (url.originalUrl || url.targetUrl)) return;
 
             try {
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
                 const response = await fetch(`https://api.snapitqr.com/short-urls/${shortCode}`, {
                     method: 'PUT',
                     headers: {
@@ -3318,7 +3349,7 @@
             }
 
             try {
-                const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+                const authToken = SnapITAPI.getToken();
                 const response = await fetch(`https://api.snapitqr.com/short-urls/${shortCode}`, {
                     method: 'DELETE',
                     headers: {
@@ -3364,11 +3395,11 @@
                     yearlyAmount: '$1,592',
                     name: 'Business'
                 },
-                personal: { monthlyPriceId: "price_1SJIkjRE8RY21XQR852sQslC", monthlyAmount: "$19", name: "Core" },
-                small: { monthlyPriceId: "price_1SJIkjRE8RY21XQR852sQslC", monthlyAmount: "$19", name: "Core" },
-                medium: { monthlyPriceId: "price_1SJIkoRE8RY21XQRZ8WiodpU", monthlyAmount: "$69", name: "Growth" },
-                large: { monthlyPriceId: "price_1SJIkoRE8RY21XQRZ8WiodpU", monthlyAmount: "$69", name: "Growth" },
-                enterprise: { monthlyPriceId: "price_1SJIksRE8RY21XQRsdtzN7cr", monthlyAmount: "$199", name: "Business" }
+                personal: { monthlyPriceId: "price_1SKiKkRE8RY21XQRngjn0Xzb", monthlyAmount: "$9.99", name: "Personal" },
+                small: { monthlyPriceId: "price_1SKiKlRE8RY21XQRzRedBJ1S", monthlyAmount: "$29.99", name: "Small Business" },
+                medium: { monthlyPriceId: "price_1SKiKmRE8RY21XQR3brcJ2tf", monthlyAmount: "$69.99", name: "Medium Business" },
+                large: { monthlyPriceId: "price_1SKiKmRE8RY21XQRSPox4Z75", monthlyAmount: "$149.99", name: "Large Business" },
+                enterprise: { monthlyPriceId: "price_1SKiKnRE8RY21XQRx6LMuYC7", monthlyAmount: "$299.99", name: "Enterprise" }
             }
         };
 
@@ -3845,7 +3876,7 @@
                     try {
                         if (qrType === 'dynamic') {
                             // Update dynamic QR via API
-                            const authToken = localStorage.getItem('snapitqr_token');
+                            const authToken = SnapITAPI.getToken();
                             const response = await fetch(`https://api.snapitqr.com/qr-codes/${qrId}`, {
                                 method: 'PUT',
                                 headers: {
@@ -4165,7 +4196,7 @@
                 return;
             }
 
-            const authToken = localStorage.getItem('accessKey') || localStorage.getItem('snapitqr_token');
+            const authToken = SnapITAPI.getToken();
             if (!authToken) {
                 showToast('Please log in first', 'error');
                 return;

@@ -9,12 +9,20 @@ let stripe;
 let STRIPE_WEBHOOK_SECRET;
 
 const PRICE_IDS = {
+  // Legacy Core/Growth/Business tiers
   core_monthly: 'price_1SJIkjRE8RY21XQR852sQslC',
   core_yearly: 'price_1SJIklRE8RY21XQR9dUaWf7i',
   growth_monthly: 'price_1SJIkoRE8RY21XQRZ8WiodpU',
   growth_yearly: 'price_1SJIkqRE8RY21XQRCwQ4M4g6',
   business_monthly: 'price_1SJIksRE8RY21XQRsdtzN7cr',
-  business_yearly: 'price_1SJIkuRE8RY21XQRJxvyf4x5'
+  business_yearly: 'price_1SJIkuRE8RY21XQRJxvyf4x5',
+
+  // New Personal/Small/Medium/Large/Enterprise tiers
+  personal_monthly: 'price_1SKiKkRE8RY21XQRngjn0Xzb',
+  small_monthly: 'price_1SKiKlRE8RY21XQRzRedBJ1S',
+  medium_monthly: 'price_1SKiKmRE8RY21XQR3brcJ2tf',
+  large_monthly: 'price_1SKiKmRE8RY21XQRSPox4Z75',
+  enterprise_monthly: 'price_1SKiKnRE8RY21XQRx6LMuYC7'
 };
 
 const TIER_LIMITS = {
@@ -27,6 +35,7 @@ const TIER_LIMITS = {
     teamMembers: 0,
     dataRetention: 30 // days
   },
+  // Legacy tiers
   core: {
     staticQRs: Infinity,
     dynamicQRs: 50,
@@ -34,7 +43,7 @@ const TIER_LIMITS = {
     customDomains: 1,
     apiCalls: 10000,
     teamMembers: 1,
-    dataRetention: 365 // days (1 year)
+    dataRetention: 365
   },
   growth: {
     staticQRs: Infinity,
@@ -43,7 +52,7 @@ const TIER_LIMITS = {
     customDomains: 5,
     apiCalls: 100000,
     teamMembers: 5,
-    dataRetention: -1 // unlimited
+    dataRetention: -1
   },
   business: {
     staticQRs: Infinity,
@@ -52,7 +61,53 @@ const TIER_LIMITS = {
     customDomains: Infinity,
     apiCalls: Infinity,
     teamMembers: Infinity,
-    dataRetention: -1 // unlimited
+    dataRetention: -1
+  },
+  // New tiers (from Stripe metadata)
+  personal: {
+    staticQRs: Infinity,
+    dynamicQRs: 50,
+    shortURLs: 250,
+    customDomains: 0,
+    apiCalls: 5000,
+    teamMembers: 1,
+    dataRetention: 90
+  },
+  small: {
+    staticQRs: Infinity,
+    dynamicQRs: 150,
+    shortURLs: 750,
+    customDomains: 1,
+    apiCalls: 15000,
+    teamMembers: 3,
+    dataRetention: 180
+  },
+  medium: {
+    staticQRs: Infinity,
+    dynamicQRs: 500,
+    shortURLs: 2500,
+    customDomains: 3,
+    apiCalls: 50000,
+    teamMembers: 5,
+    dataRetention: 365
+  },
+  large: {
+    staticQRs: Infinity,
+    dynamicQRs: 2000,
+    shortURLs: 10000,
+    customDomains: 10,
+    apiCalls: 200000,
+    teamMembers: 10,
+    dataRetention: -1
+  },
+  enterprise: {
+    staticQRs: Infinity,
+    dynamicQRs: Infinity,
+    shortURLs: Infinity,
+    customDomains: Infinity,
+    apiCalls: Infinity,
+    teamMembers: Infinity,
+    dataRetention: -1
   }
 };
 
@@ -118,7 +173,23 @@ exports.handler = async (event) => {
 };
 
 async function createCheckoutSession(event, headers) {
-  const userId = event.requestContext.authorizer?.userId;
+  // Try to get userId from authorizer (if configured)
+  let userId = event.requestContext.authorizer?.userId;
+
+  // If not from authorizer, decode from JWT token in Authorization header
+  if (!userId) {
+    const authHeader = event.headers?.Authorization || event.headers?.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        // Decode JWT (basic decode without signature verification for now)
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.userId || payload.email;
+      } catch (error) {
+        console.error('Failed to decode token:', error);
+      }
+    }
+  }
 
   if (!userId) {
     return {

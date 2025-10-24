@@ -447,6 +447,32 @@ async function updateQRCode(event, userId, userTier, headers) {
       updateExpression.push('#type = :type');
       expressionAttributeNames['#type'] = 'type';
       expressionAttributeValues[':type'] = 'dynamic';
+
+      // CRITICAL: Regenerate QR image with redirect URL and upload to S3
+      // This ensures the QR code image NEVER changes after this point
+      const customization = existing.Item.customization || {};
+      const qrOptions = {
+        width: customization.size || 300,
+        margin: 1,
+        color: {
+          dark: customization.foregroundColor || '#000000',
+          light: customization.backgroundColor || '#FFFFFF'
+        }
+      };
+
+      // Generate new QR with redirect URL (not destination)
+      const qrBuffer = await QRCode.toBuffer(redirectUrl, qrOptions);
+
+      // Upload to S3 (overwrite existing image)
+      const s3Key = `qr-codes/${qrId}.png`;
+      await s3.putObject({
+        Bucket: process.env.S3_BUCKET || 'snapitqr-assets',
+        Key: s3Key,
+        Body: qrBuffer,
+        ContentType: 'image/png'
+      }).promise();
+
+      console.log(`Regenerated QR image for ${qrId} with redirect URL when converting to dynamic`);
     }
   }
 
@@ -577,10 +603,10 @@ async function redirectQRCode(event) {
   const qrId = event.pathParameters.id;
 
   try {
-    // Scan DynamoDB for this qrId across all users
-    const result = await dynamodb.scan({
+    // Query DynamoDB for this qrId (qrId is the hash key)
+    const result = await dynamodb.query({
       TableName: 'snapitqr-qrcodes',
-      FilterExpression: 'qrId = :qrId',
+      KeyConditionExpression: 'qrId = :qrId',
       ExpressionAttributeValues: {
         ':qrId': qrId
       },
