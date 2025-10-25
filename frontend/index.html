@@ -21,8 +21,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" href="/favicon.png">
     
-    <!-- Relaxed CSP to prevent unnecessary blocking -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; style-src 'self' 'unsafe-inline' https: data:; connect-src 'self' https: wss: data:; font-src 'self' https: data:; img-src 'self' https: data: blob:; frame-src 'self' https:; media-src 'self' https: data: blob:; object-src 'none'; base-uri 'self';"
+    <!-- CSP handled by CloudFront response headers policy -->
 
     <!-- Cross-Origin-Opener-Policy for Google OAuth compatibility -->
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
@@ -2915,7 +2914,13 @@
                 // For dynamic QR codes, ALWAYS download from S3 to ensure the image never changes
                 if (qrType === 'dynamic' && qr.qrUrl) {
                     try {
+                        console.log('Downloading QR from S3:', qr.qrUrl);
                         const response = await fetch(qr.qrUrl);
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
@@ -2926,9 +2931,9 @@
                         showToast('QR code downloaded!', 'success');
                         return;
                     } catch (error) {
-                        console.error('Failed to download from S3:', error);
-                        showToast('Failed to download QR code from server', 'error');
-                        return;
+                        console.error('Failed to download from S3, falling back to regeneration:', error);
+                        console.log('QR data for fallback:', { qrId, redirectUrl: qr.redirectUrl, content: qr.content });
+                        // Fall through to regeneration code below as fallback
                     }
                 }
 
