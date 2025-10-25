@@ -17,11 +17,31 @@ const TIER_LIMITS = {
     dynamicQRs: 50,
     staticQRs: Infinity
   },
+  personal: {
+    dynamicQRs: 50,
+    staticQRs: Infinity
+  },
   growth: {
     dynamicQRs: 500,
     staticQRs: Infinity
   },
+  small: {
+    dynamicQRs: 150,
+    staticQRs: Infinity
+  },
+  medium: {
+    dynamicQRs: 500,
+    staticQRs: Infinity
+  },
   business: {
+    dynamicQRs: Infinity,
+    staticQRs: Infinity
+  },
+  large: {
+    dynamicQRs: 2000,
+    staticQRs: Infinity
+  },
+  enterprise: {
     dynamicQRs: Infinity,
     staticQRs: Infinity
   }
@@ -49,6 +69,24 @@ exports.handler = async (event) => {
           console.log('JWT verification failed:', jwtError.message);
           // userId remains undefined - will be treated as anonymous
         }
+      }
+    }
+
+    // Fetch fresh tier from DynamoDB (overrides JWT tier)
+    if (userId && userId !== 'anonymous') {
+      try {
+        const userRecord = await dynamodb.get({
+          TableName: 'snapitqr-users',
+          Key: { userId }
+        }).promise();
+
+        if (userRecord.Item) {
+          userTier = userRecord.Item.tier || userRecord.Item.subscription?.tier || 'free';
+          console.log(`User ${userId} tier from DB: ${userTier}`);
+        }
+      } catch (dbError) {
+        console.error('Failed to fetch user tier from DB:', dbError);
+        // Keep tier from JWT/authorizer as fallback
       }
     }
 
